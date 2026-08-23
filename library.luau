@@ -1,4 +1,3 @@
--- services
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local tween_service = game:GetService("TweenService")
@@ -8,7 +7,10 @@ local run_service = game:GetService("RunService")
 
 local player = players.LocalPlayer
 
--- library init
+if getgenv().library then
+    getgenv().library:unload()
+end
+
 local library = {
     flags = {},
     config_flags = {},
@@ -25,12 +27,13 @@ local library = {
             placeholder = Color3.fromRGB(140, 140, 140),
             stroke = Color3.fromRGB(50, 50, 50),
             element_background = Color3.fromRGB(40, 40, 40),
-            dropdown = Color3.fromRGB(35, 35, 35)
+            dropdown = Color3.fromRGB(35, 35, 35),
+            highlight = Color3.fromRGB(40, 40, 40)
         }
-    }
+    },
+    tab_order = 0
 }
 
--- utility functions
 function library:create(class, props)
     local inst = Instance.new(class)
     for prop, val in next, props do
@@ -47,36 +50,43 @@ function library:connection(signal, callback)
 end
 
 function library:unload()
-    for _, conn in next, self.connections do conn:Disconnect() end
+    for _, conn in next, self.connections do if conn.Connected then conn:Disconnect() end end
     for _, inst in next, self.instances do if inst and inst.Parent then inst:Destroy() end end
     if self.gui then self.gui:Destroy() end
     getgenv().library = nil
 end
 
--- asset manager with question.png fallback
-function library:get_icon(name)
+function library:get_icon(icon)
+    if not icon then return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
+    
+    if string.sub(icon, 1, 4) == "http" or string.sub(icon, 1, 7) == "rbxasset" then
+        return icon
+    end
+
     if not isfolder(self.directory) then makefolder(self.directory) end
     local icon_folder = self.directory .. "/icons"
     if not isfolder(icon_folder) then makefolder(icon_folder) end
 
-    local path = icon_folder .. "/" .. name
+    local file_name = icon
+    if not string.find(file_name, "%.png$") then
+        file_name = file_name .. ".png"
+    end
+
+    local path = icon_folder .. "/" .. file_name
     if isfile(path) then
         return getcustomasset(path)
     end
 
-    -- fallback to github if not found locally
-    local url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/" .. name
-    local success, data = pcall(function()
-        return game:HttpGet(url)
-    end)
+    local url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/" .. file_name
+    local success, data = pcall(function() return game:HttpGet(url) end)
 
-    -- simple check to ensure we got an image and not a 404 page
     if success and data and #data > 100 then
         writefile(path, data)
         return getcustomasset(path)
     end
 
-    -- fallback to question.png
+    warn("the prebuilt icon named '"..icon.."' could not be found. please look at the github to see all icons")
+    
     local q_path = icon_folder .. "/question.png"
     if isfile(q_path) then
         return getcustomasset(q_path)
@@ -92,21 +102,71 @@ function library:get_icon(name)
     return "rbxasset://textures/ui/GuiImagePlaceholder.png"
 end
 
--- theme manager
-function library:apply_theme(instance, theme_name, property)
-    if not self.themes.utility then self.themes.utility = {} end
-    if not self.themes.utility[theme_name] then self.themes.utility[theme_name] = {} end
-    if not self.themes.utility[theme_name][property] then self.themes.utility[theme_name][property] = {} end
-    
-    table.insert(self.themes.utility[theme_name][property], instance)
-    instance[property] = self.themes.preset[theme_name]
+function library:loading_screen(props)
+    local cfg = {
+        text = props.text or "loading...",
+        duration = props.duration or 2,
+        icon = props.icon or "logo"
+    }
+
+    local loader_gui = self:create("ScreenGui", {
+        Name = "femboy_loader",
+        Parent = gethui() and gethui() or coregui,
+        IgnoreGuiInset = true,
+        DisplayOrder = 9999
+    })
+
+    local screen = self:create("Frame", {
+        Name = "loader",
+        Parent = loader_gui,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+        BorderSizePixel = 0
+    })
+
+    local logo = self:create("ImageLabel", {
+        Name = "logo",
+        Parent = screen,
+        BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, -20),
+        Size = UDim2.new(0, 80, 0, 80),
+        Image = self:get_icon(cfg.icon)
+    })
+
+    local text_label = self:create("TextLabel", {
+        Name = "text",
+        Parent = screen,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0.5, 0, 0.5, 40),
+        Size = UDim2.new(0, 200, 0, 20),
+        Font = Enum.Font.GothamBold,
+        Text = cfg.text,
+        TextColor3 = self.themes.preset.text,
+        TextSize = 14
+    })
+
+    local spin_conn
+    spin_conn = run_service.RenderStepped:Connect(function()
+        local speed = math.abs(math.sin(tick() * 2)) * 8 + 1
+        logo.Rotation = logo.Rotation + speed
+    end)
+
+    task.delay(cfg.duration, function()
+        spin_conn:Disconnect()
+        tween_service:Create(screen, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
+        tween_service:Create(logo, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
+        tween_service:Create(text_label, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
+        task.delay(0.5, function() loader_gui:Destroy() end)
+    end)
 end
 
--- main window
 function library:window(props)
     local cfg = {
         title = props.title or "femboy-ware",
-        size = props.size or UDim2.new(0, 600, 0, 400)
+        subtitle = props.subtitle or "",
+        size = props.size or UDim2.new(0, 650, 0, 450),
+        icon = props.icon or "logo"
     }
 
     self.gui = self:create("ScreenGui", {
@@ -125,28 +185,36 @@ function library:window(props)
         BorderSizePixel = 0,
         ClipsDescendants = true
     })
-
     self:create("UICorner", { Parent = main_frame, CornerRadius = UDim.new(0, 6) })
     self:create("UIStroke", { Parent = main_frame, Color = self.themes.preset.stroke, Thickness = 1 })
 
     local topbar = self:create("Frame", {
         Name = "topbar",
         Parent = main_frame,
-        Size = UDim2.new(1, 0, 0, 40), -- increased height for 24x24 icons
+        Size = UDim2.new(1, 0, 0, 40),
         BackgroundColor3 = self.themes.preset.sidebar,
         BorderSizePixel = 0
     })
-    -- added corner to topbar so it doesn't clip
     self:create("UICorner", { Parent = topbar, CornerRadius = UDim.new(0, 6) })
+
+    local window_icon = self:create("ImageLabel", {
+        Name = "icon",
+        Parent = topbar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 12, 0, 8),
+        Size = UDim2.new(0, 24, 0, 24),
+        Image = self:get_icon(cfg.icon)
+    })
 
     local title_label = self:create("TextLabel", {
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(1, -150, 1, 0),
+        Position = UDim2.new(0, 44, 0, 0),
+        Size = UDim2.new(1, -200, 1, 0),
         Font = Enum.Font.GothamBold,
-        Text = cfg.title,
+        RichText = true,
+        Text = string.format('<font size="14">%s</font><font size="12" color="#8c8c8c">%s</font>', cfg.title, cfg.subtitle),
         TextColor3 = self.themes.preset.text,
         TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left
@@ -155,7 +223,7 @@ function library:window(props)
     local content = self:create("Frame", {
         Name = "content",
         Parent = main_frame,
-        Position = UDim2.new(0, 8, 0, 48), -- shifted down to account for 40px topbar
+        Position = UDim2.new(0, 8, 0, 48),
         Size = UDim2.new(1, -16, 1, -56),
         BackgroundTransparency = 1
     })
@@ -165,44 +233,101 @@ function library:window(props)
         Parent = content,
         Size = UDim2.new(0, 140, 1, 0),
         BackgroundColor3 = self.themes.preset.sidebar,
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ClipsDescendants = true
     })
     self:create("UICorner", { Parent = sidebar, CornerRadius = UDim.new(0, 4) })
 
-    local sidebar_list = self:create("UIListLayout", {
+    local tab_list = self:create("ScrollingFrame", {
+        Name = "tab_list",
         Parent = sidebar,
-        Padding = UDim.new(0, 4),
-        SortOrder = Enum.SortOrder.LayoutOrder
+        Size = UDim2.new(1, 0, 1, -50),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        ScrollBarThickness = 0,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y
     })
-    self:create("UIPadding", { Parent = sidebar, PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) })
+    self:create("UIListLayout", { Parent = tab_list, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder })
+    self:create("UIPadding", { Parent = tab_list, PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) })
+
+    local player_frame = self:create("Frame", {
+        Name = "player_info",
+        Parent = sidebar,
+        Position = UDim2.new(0, 6, 1, -44),
+        Size = UDim2.new(1, -12, 0, 32),
+        BackgroundTransparency = 1
+    })
+
+    local avatar_img = self:create("ImageLabel", {
+        Name = "avatar",
+        Parent = player_frame,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 32, 0, 32),
+        Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..player.UserId.."&width=150&height=150&format=png"
+    })
+    self:create("UICorner", { Parent = avatar_img, CornerRadius = UDim.new(1, 0) })
+
+    local pname_label = self:create("TextLabel", {
+        Name = "pname",
+        Parent = player_frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 40, 0, 0),
+        Size = UDim2.new(1, -40, 1, 0),
+        Font = Enum.Font.GothamBold,
+        Text = player.DisplayName,
+        TextColor3 = self.themes.preset.text,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextTruncate = Enum.TextTruncate.AtEnd
+    })
 
     local tab_content = self:create("Frame", {
         Name = "tab_content",
         Parent = content,
         Position = UDim2.new(0, 148, 0, 0),
         Size = UDim2.new(1, -148, 1, 0),
-        BackgroundTransparency = 1
+        BackgroundTransparency = 1,
+        ClipsDescendants = true
     })
 
-    -- topbar buttons (now 24x24)
-    local function make_topbar_button(name, icon, pos_x)
-        local btn = self:create("ImageButton", {
-            Name = name,
-            Parent = topbar,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(1, pos_x, 0, 8), -- (40-24)/2 = 8
-            Size = UDim2.new(0, 24, 0, 24),
-            Image = self:get_icon(icon)
-        })
-        return btn
-    end
+    local close_btn = self:create("ImageButton", {
+        Name = "close",
+        Parent = topbar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -34, 0, 8),
+        Size = UDim2.new(0, 24, 0, 24),
+        Image = self:get_icon("x")
+    })
 
-    local close_btn = make_topbar_button("close", "x.png", -32)
-    local minimize_btn = make_topbar_button("minimize", "minimize.png", -64)
-    local settings_btn = make_topbar_button("settings", "settings.png", -96)
+    local minimize_btn = self:create("ImageButton", {
+        Name = "minimize",
+        Parent = topbar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -68, 0, 9),
+        Size = UDim2.new(0, 21, 0, 21),
+        Image = self:get_icon("minimize")
+    })
 
-    -- dragging logic (mobile & pc)
-    local dragging, drag_input, drag_start, start_pos
+    local settings_btn = self:create("ImageButton", {
+        Name = "settings",
+        Parent = topbar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -101, 0, 9),
+        Size = UDim2.new(0, 21, 0, 21),
+        Image = self:get_icon("settings")
+    })
+
+    local panel_btn = self:create("ImageButton", {
+        Name = "panel",
+        Parent = topbar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -134, 0, 9),
+        Size = UDim2.new(0, 21, 0, 21),
+        Image = self:get_icon("panel-close")
+    })
+
+    local dragging, drag_start, start_pos
     self:connection(topbar.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
@@ -224,7 +349,6 @@ function library:window(props)
         end
     end)
 
-    -- topbar logic
     self:connection(close_btn.MouseButton1Click, function()
         self:unload()
     end)
@@ -232,70 +356,81 @@ function library:window(props)
     local minimized = false
     self:connection(minimize_btn.MouseButton1Click, function()
         minimized = not minimized
-        -- only shrink y axis
         local target_size = minimized and UDim2.new(cfg.size.X.Scale, cfg.size.X.Offset, 0, 40) or cfg.size
-        -- toggle icon
-        minimize_btn.Image = minimized and self:get_icon("expand.png") or self:get_icon("minimize.png")
-        
-        tween_service:Create(main_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
-            Size = target_size
-        }):Play()
+        minimize_btn.Image = minimized and self:get_icon("maximize") or self:get_icon("minimize")
+        content.Visible = not minimized
+        tween_service:Create(main_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Size = target_size }):Play()
     end)
 
-    -- auto create settings tab
-    cfg.settings_tab = self:tab({ name = "settings", icon = "settings.png" })
+    local panel_collapsed = false
+    self:connection(panel_btn.MouseButton1Click, function()
+        panel_collapsed = not panel_collapsed
+        local target_w = panel_collapsed and 50 or 140
+        local target_x = panel_collapsed and 58 or 148
+        local target_icon = panel_collapsed and "panel-open" or "panel-close"
+        
+        tween_service:Create(sidebar, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Size = UDim2.new(0, target_w, 1, 0) }):Play()
+        tween_service:Create(tab_content, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = UDim2.new(0, target_x, 0, 0), Size = UDim2.new(1, -target_x, 1, 0) }):Play()
+        panel_btn.Image = self:get_icon(target_icon)
+        
+        for _, tab in next, self.tabs do
+            if tab.text_label then
+                tab.text_label.Visible = not panel_collapsed
+            end
+        end
+        pname_label.Visible = not panel_collapsed
+        
+        if panel_collapsed then
+            tween_service:Create(avatar_img, TweenInfo.new(0.3), { Position = UDim2.new(0.5, -16, 0, 0) }):Play()
+        else
+            tween_service:Create(avatar_img, TweenInfo.new(0.3), { Position = UDim2.new(0, 0, 0, 0) }):Play()
+        end
+    end)
+
+    self.tabs = {}
+
+    local home_tab = self:tab({ name = "home", icon = "house", hidden_order = -1 })
+    local home_section = home_tab:section({ name = "info" })
+    home_section:add_info_row("welcome", "hello " .. player.DisplayName)
+    home_section:add_info_row("script", "femboy-ware v1.0")
+    home_section:add_info_row("status", "undetected")
+    home_tab:select()
+
+    cfg.settings_tab = self:tab({ name = "settings", icon = "settings", hidden = true })
     cfg.settings_tab.frame.Visible = false
-    cfg.settings_tab.frame.Parent = tab_content -- ensure parentage
+    cfg.settings_tab.button.Visible = false
 
     self:connection(settings_btn.MouseButton1Click, function()
-        if self.current_tab then
-            self.current_tab.button.BackgroundTransparency = 1
-            self.current_tab.frame.Visible = false
-        end
-        self.current_tab = cfg.settings_tab
-        cfg.settings_tab.button.BackgroundTransparency = 0.5
-        cfg.settings_tab.frame.Visible = true
+        cfg.settings_tab:select()
     end)
 
-    -- config system
-    cfg.config_section = cfg.settings_tab:section({ name = "configs" })
-    
-    local config_name_input = cfg.config_section:textbox({ 
-        placeholder = "config name", 
-        clear_on_focus = true 
-    })
+    local config_section = cfg.settings_tab:section({ name = "configs" })
+    local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
 
-    cfg.config_section:button({ 
+    config_section:button({ 
         name = "save config", 
         callback = function()
             local name = config_name_input.instance.Text
             if name == "" then return end
-            
             local config_data = {}
-            for flag, val in next, self.flags do
-                config_data[flag] = val
-            end
-            
+            for flag, val in next, self.flags do config_data[flag] = val end
             local path = self.directory .. "/configs/" .. name .. ".json"
             writefile(path, http_service:JSONEncode(config_data))
             self:notification({ text = "saved config: " .. name })
-            cfg.config_section:refresh_configs()
+            config_section:refresh_configs()
         end 
     })
 
-    cfg.config_section:button({ 
+    config_section:button({ 
         name = "load config", 
         callback = function()
             local name = config_name_input.instance.Text
             if name == "" then return end
-            
             local path = self.directory .. "/configs/" .. name .. ".json"
             if isfile(path) then
                 local data = http_service:JSONDecode(readfile(path))
                 for flag, val in next, data do
-                    if self.config_flags[flag] then
-                        self.config_flags[flag](val)
-                    end
+                    if self.config_flags[flag] then self.config_flags[flag](val) end
                 end
                 self:notification({ text = "loaded config: " .. name })
             else
@@ -304,7 +439,7 @@ function library:window(props)
         end 
     })
 
-    function cfg.config_section:refresh_configs()
+    function config_section:refresh_configs()
         if not isfolder(self.directory .. "/configs") then makefolder(self.directory .. "/configs") end
         local files = listfiles(self.directory .. "/configs")
         local names = {}
@@ -312,39 +447,58 @@ function library:window(props)
             local name = file:match("([^/\\]+)%.json$")
             if name then table.insert(names, name) end
         end
-        if cfg.config_dropdown then
-            cfg.config_dropdown:refresh(names)
+        if config_section.config_dd then
+            config_section.config_dd:refresh(names)
         end
     end
 
-    cfg.config_dropdown = cfg.config_section:dropdown({ 
+    config_section.config_dd = config_section:dropdown({ 
         name = "saved configs", 
         options = {}, 
         callback = function(val)
             config_name_input.instance.Text = val
         end
     })
-    cfg.config_section:refresh_configs()
+    config_section:refresh_configs()
 
     return setmetatable(cfg, { __index = self })
 end
 
--- tab
 function library:tab(props)
     local cfg = {
         name = props.name or "tab",
-        icon = props.icon or "down.png"
+        icon = props.icon or "down",
+        hidden = props.hidden or false
     }
+
+    local order = props.hidden_order or self.tab_order
+    if not props.hidden_order then
+        self.tab_order += 1
+        order = self.tab_order
+    end
 
     local button = self:create("TextButton", {
         Name = cfg.name,
-        Parent = self.gui.main.content.sidebar,
+        Parent = self.gui.main.content.sidebar.tab_list,
         Size = UDim2.new(1, 0, 0, 32),
+        BackgroundColor3 = self.themes.preset.highlight,
         BackgroundTransparency = 1,
         Text = "",
-        AutoButtonColor = false
+        AutoButtonColor = false,
+        LayoutOrder = order
     })
     self:create("UICorner", { Parent = button, CornerRadius = UDim.new(0, 4) })
+
+    local accent_bar = self:create("Frame", {
+        Name = "accent",
+        Parent = button,
+        Size = UDim2.new(0, 2, 0, 16),
+        Position = UDim2.new(0, 0, 0, 8),
+        BackgroundColor3 = self.themes.preset.accent,
+        BorderSizePixel = 0,
+        Visible = false
+    })
+    self:create("UICorner", { Parent = accent_bar, CornerRadius = UDim.new(1, 0) })
 
     local icon_label = self:create("ImageLabel", {
         Name = "icon",
@@ -378,31 +532,62 @@ function library:tab(props)
         ScrollBarImageColor3 = self.themes.preset.accent,
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
-        Visible = false
+        Visible = false,
+        Position = UDim2.new(0, 0,0, 0)
     })
     self:create("UIListLayout", { Parent = frame, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
     self:create("UIPadding", { Parent = frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
 
     cfg.button = button
     cfg.frame = frame
+    cfg.text_label = text_label
+    cfg.order = order
+
+    table.insert(self.tabs, cfg)
+
+    function cfg:select()
+        if library.current_tab == cfg then return end
+        
+        local old_tab = library.current_tab
+        local direction = 1
+        if old_tab and old_tab.order then
+            if old_tab.order < cfg.order then direction = 1 else direction = -1 end
+        end
+
+        if old_tab then
+            old_tab.button.BackgroundTransparency = 1
+            old_tab.button.accent.Visible = false
+            old_tab.button.text.TextColor3 = library.themes.preset.placeholder
+            
+            old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
+            tween_service:Create(old_tab.frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
+            task.delay(0.3, function()
+                old_tab.frame.Visible = false
+                old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
+            end)
+        end
+
+        library.current_tab = cfg
+        button.BackgroundTransparency = 0
+        accent_bar.Visible = true
+        text_label.TextColor3 = library.themes.preset.text
+        
+        frame.Visible = true
+        frame.Position = UDim2.new(direction, 0, 0, 0)
+        tween_service:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
+    end
 
     self:connection(button.MouseButton1Click, function()
-        if self.current_tab then
-            self.current_tab.button.BackgroundTransparency = 1
-            self.current_tab.frame.Visible = false
-        end
-        self.current_tab = cfg
-        button.BackgroundTransparency = 0.5
-        frame.Visible = true
+        cfg:select()
     end)
 
     return setmetatable(cfg, { __index = self })
 end
 
--- section
 function library:section(props)
     local cfg = {
         name = props.name or "section",
+        icon = props.icon or nil,
         expanded = true
     }
 
@@ -431,15 +616,28 @@ function library:section(props)
         BackgroundTransparency = 1,
         Position = UDim2.new(1, -24, 0, 8),
         Size = UDim2.new(0, 16, 0, 16),
-        Image = self:get_icon("down.png")
+        Image = self:get_icon("down")
     })
+
+    local text_x = 12
+    if cfg.icon then
+        local s_icon = self:create("ImageLabel", {
+            Name = "s_icon",
+            Parent = header,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0, 12, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            Image = self:get_icon(cfg.icon)
+        })
+        text_x = 32
+    end
 
     local title = self:create("TextLabel", {
         Name = "title",
         Parent = header,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(1, -24, 1, 0),
+        Position = UDim2.new(0, text_x, 0, 0),
+        Size = UDim2.new(1, -text_x - 24, 1, 0),
         Font = Enum.Font.GothamBold,
         Text = cfg.name,
         TextColor3 = self.themes.preset.text,
@@ -460,34 +658,57 @@ function library:section(props)
     self:create("UIPadding", { Parent = elements_holder, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
 
     cfg.holder = elements_holder
-    cfg.elements = {}
 
-    -- smooth dropdown logic
     self:connection(header.MouseButton1Click, function()
         cfg.expanded = not cfg.expanded
         local target_size = cfg.expanded and elements_holder.AbsoluteSize.Y or 0
         local target_rot = cfg.expanded and 0 or 180
         
-        tween_service:Create(elements_holder, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(1, 0, 0, target_size)
-        }):Play()
-        tween_service:Create(dropdown_icon, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Rotation = target_rot
-        }):Play()
+        tween_service:Create(elements_holder, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_size) }):Play()
+        tween_service:Create(dropdown_icon, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Rotation = target_rot }):Play()
 
         if cfg.expanded then
-            task.delay(0.3, function()
-                elements_holder.AutomaticSize = Enum.AutomaticSize.Y
-            end)
+            task.delay(0.3, function() elements_holder.AutomaticSize = Enum.AutomaticSize.Y end)
         else
             elements_holder.AutomaticSize = Enum.AutomaticSize.None
         end
     end)
 
+    function cfg:add_info_row(name, val)
+        local row = self:create("Frame", {
+            Name = name,
+            Parent = self.holder,
+            Size = UDim2.new(1, 0, 0, 24),
+            BackgroundTransparency = 1
+        }
+        self:create("TextLabel", {
+            Name = "name",
+            Parent = row,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0.5, 0, 1, 0),
+            Font = Enum.Font.Gotham,
+            Text = name,
+            TextColor3 = self.themes.preset.placeholder,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        self:create("TextLabel", {
+            Name = "val",
+            Parent = row,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(0.5, 0, 0, 0),
+            Size = UDim2.new(0.5, 0, 1, 0),
+            Font = Enum.Font.GothamBold,
+            Text = val,
+            TextColor3 = self.themes.preset.text,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Right
+        })
+    end
+
     return setmetatable(cfg, { __index = self })
 end
 
--- toggle
 function library:toggle(props)
     local cfg = {
         name = props.name or "toggle",
@@ -504,12 +725,10 @@ function library:toggle(props)
         Text = "",
         AutoButtonColor = false
     })
-
     self:create("TextLabel", {
         Name = "name",
         Parent = toggle_frame,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 0, 0, 0),
         Size = UDim2.new(1, -40, 1, 0),
         Font = Enum.Font.Gotham,
         Text = cfg.name,
@@ -541,26 +760,19 @@ function library:toggle(props)
     function cfg.set(val)
         cfg.value = val
         self.flags[cfg.flag] = val
-        
         local color = val and self.themes.preset.accent or self.themes.preset.dropdown
         local pos = val and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2)
-        
         tween_service:Create(switch_bg, TweenInfo.new(0.2), { BackgroundColor3 = color }):Play()
         tween_service:Create(switch_dot, TweenInfo.new(0.2), { Position = pos }):Play()
-        
         cfg.callback(val)
     end
 
-    self:connection(toggle_frame.MouseButton1Click, function()
-        cfg.set(not cfg.value)
-    end)
-
+    self:connection(toggle_frame.MouseButton1Click, function() cfg.set(not cfg.value) end)
     cfg.set(cfg.default)
     self.config_flags[cfg.flag] = cfg.set
     return cfg
 end
 
--- button
 function library:button(props)
     local cfg = {
         name = props.name or "button",
@@ -596,11 +808,9 @@ function library:button(props)
         end)
         cfg.callback()
     end)
-
     return cfg
 end
 
--- keybind
 function library:keybind(props)
     local cfg = {
         name = props.name or "keybind",
@@ -618,7 +828,6 @@ function library:keybind(props)
         Text = "",
         AutoButtonColor = false
     })
-
     self:create("TextLabel", {
         Name = "name",
         Parent = bind_frame,
@@ -664,13 +873,10 @@ function library:keybind(props)
     self:connection(bind_btn.MouseButton1Click, function()
         bind_text.Text = "..."
         cfg.binding = true
-        
         local conn
         conn = uis.InputBegan:Connect(function(input)
             if cfg.binding then
-                if input.UserInputType == Enum.UserInputType.Keyboard then
-                    cfg.set(input.KeyCode)
-                end
+                if input.UserInputType == Enum.UserInputType.Keyboard then cfg.set(input.KeyCode) end
                 cfg.binding = false
                 conn:Disconnect()
             end
@@ -682,7 +888,6 @@ function library:keybind(props)
     return cfg
 end
 
--- dropdown
 function library:dropdown(props)
     local cfg = {
         name = props.name or "dropdown",
@@ -693,13 +898,7 @@ function library:dropdown(props)
         open = false
     }
 
-    local dd_frame = self:create("Frame", {
-        Name = cfg.name,
-        Parent = self.holder,
-        Size = UDim2.new(1, 0, 0, 32),
-        BackgroundTransparency = 1
-    })
-
+    local dd_frame = self:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1 })
     self:create("TextLabel", {
         Name = "name",
         Parent = dd_frame,
@@ -743,7 +942,7 @@ function library:dropdown(props)
         BackgroundTransparency = 1,
         Position = UDim2.new(1, -18, 0, 4),
         Size = UDim2.new(0, 16, 0, 16),
-        Image = self:get_icon("down.png")
+        Image = self:get_icon("down")
     })
 
     local dd_list = self:create("Frame", {
@@ -816,12 +1015,10 @@ function library:dropdown(props)
 
     cfg:refresh(cfg.options)
     if cfg.default then cfg.set(cfg.default) end
-
     self.config_flags[cfg.flag] = cfg.set
     return cfg
 end
 
--- textbox
 function library:textbox(props)
     local cfg = {
         placeholder = props.placeholder or "enter text...",
@@ -865,11 +1062,9 @@ function library:textbox(props)
         self.flags[cfg.flag] = val
         cfg.callback(val)
     end
-
     return cfg
 end
 
--- slider
 function library:slider(props)
     local cfg = {
         name = props.name or "slider",
@@ -881,13 +1076,7 @@ function library:slider(props)
         dragging = false
     }
 
-    local s_frame = self:create("Frame", {
-        Name = cfg.name,
-        Parent = self.holder,
-        Size = UDim2.new(1, 0, 0, 40),
-        BackgroundTransparency = 1
-    })
-
+    local s_frame = self:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 40), BackgroundTransparency = 1 })
     self:create("TextLabel", {
         Name = "name",
         Parent = s_frame,
@@ -950,9 +1139,7 @@ function library:slider(props)
         cfg.set(cfg.min + (cfg.max - cfg.min) * percent)
     end)
     self:connection(uis.InputEnded, function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            cfg.dragging = false
-        end
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then cfg.dragging = false end
     end)
     self:connection(uis.InputChanged, function(input)
         if cfg.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
@@ -966,7 +1153,6 @@ function library:slider(props)
     return cfg
 end
 
--- notification
 function library:notification(props)
     local cfg = {
         text = props.text or "notification",
@@ -997,7 +1183,6 @@ function library:notification(props)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    notif.Position = UDim2.new(1, 0, 1, -50)
     tween_service:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
         Position = UDim2.new(1, -210, 1, -50)
     }):Play()
@@ -1007,57 +1192,6 @@ function library:notification(props)
             Position = UDim2.new(1, 0, 1, -50)
         }):Play()
         task.delay(0.5, function() notif:Destroy() end)
-    end)
-end
-
--- loading screen
-function library:loading_screen(props)
-    local cfg = {
-        text = props.text or "loading...",
-        duration = props.duration or 2
-    }
-
-    local screen = self:create("Frame", {
-        Name = "loader",
-        Parent = self.gui,
-        Size = UDim2.new(1, 0, 1, 0),
-        BackgroundColor3 = Color3.fromRGB(15, 15, 15),
-        BorderSizePixel = 0
-    })
-
-    local logo = self:create("ImageLabel", {
-        Name = "logo",
-        Parent = screen,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0.5, -50, 0.5, -50),
-        Size = UDim2.new(0, 100, 0, 100),
-        Image = self:get_icon("loader.png")
-    })
-
-    local text_label = self:create("TextLabel", {
-        Name = "text",
-        Parent = screen,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0.5, -100, 0.5, 60),
-        Size = UDim2.new(0, 200, 0, 20),
-        Font = Enum.Font.GothamBold,
-        Text = cfg.text,
-        TextColor3 = self.themes.preset.text,
-        TextSize = 14
-    })
-
-    -- simple spin animation
-    local spin_conn
-    spin_conn = run_service.RenderStepped:Connect(function()
-        logo.Rotation = logo.Rotation + 2
-    end)
-
-    task.delay(cfg.duration, function()
-        spin_conn:Disconnect()
-        tween_service:Create(screen, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
-        tween_service:Create(logo, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
-        tween_service:Create(text_label, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-        task.delay(0.5, function() screen:Destroy() end)
     end)
 end
 
