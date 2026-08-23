@@ -70,21 +70,14 @@ function library:change_accent(color)
 end
 
 function library:connection(signal, callback)
-    if signal and type(signal.Connect) == "function" then
-        local conn = signal:Connect(callback)
-        table.insert(self.connections, conn)
-        return conn
-    end
-    return nil
+    local conn = signal:Connect(callback)
+    table.insert(self.connections, conn)
+    return conn
 end
 
 function library:unload()
-    for _, conn in next, self.connections do 
-        if conn and type(conn.Disconnect) == "function" then conn:Disconnect() end 
-    end
-    for _, inst in next, self.instances do 
-        if inst and inst.Parent then inst:Destroy() end 
-    end
+    for _, conn in next, self.connections do if conn.Connected then conn:Disconnect() end end
+    for _, inst in next, self.instances do if inst and inst.Parent then inst:Destroy() end end
     if self.gui then self.gui:Destroy() end
     getgenv().library = nil
 end
@@ -92,7 +85,7 @@ end
 function library:get_icon(icon)
     if not icon then return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
     
-    if type(icon) == "string" and (string.sub(icon, 1, 4) == "http" or string.sub(icon, 1, 7) == "rbxasset") then
+    if string.sub(icon, 1, 4) == "http" or string.sub(icon, 1, 7) == "rbxasset" then
         return icon
     end
 
@@ -118,7 +111,7 @@ function library:get_icon(icon)
 
     for _, url in ipairs(urls) do
         local success, data = pcall(function() return game:HttpGet(url) end)
-        if success and type(data) == "string" and #data > 100 then
+        if success and data and #data > 100 then
             writefile(path, data)
             return getcustomasset(path)
         end
@@ -135,7 +128,7 @@ function library:get_icon(icon)
     }
     for _, q_url in ipairs(q_urls) do
         local q_success, q_data = pcall(function() return game:HttpGet(q_url) end)
-        if q_success and type(q_data) == "string" and #q_data > 100 then
+        if q_success and q_data and #q_data > 100 then
             writefile(q_path, q_data)
             return getcustomasset(q_path)
         end
@@ -148,13 +141,7 @@ local function parse_markdown(md)
     if type(md) ~= "string" then return "invalid changelog" end
     local html = ""
     local in_code = false
-    
-    local lines = {}
     for line in string.gmatch(md .. "\n", "(.-)\n") do
-        table.insert(lines, line)
-    end
-    
-    for _, line in ipairs(lines) do
         if string.sub(line, 1, 3) == "```" then
             in_code = not in_code
             html = html .. "<br/>"
@@ -234,23 +221,21 @@ function library:loading_screen(props)
 
     local spin_info = TweenInfo.new(1.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     local spin_tween = tween_service:Create(logo, spin_info, { Rotation = 360 })
-    if spin_tween and type(spin_tween.Play) == "function" then spin_tween:Play() end
+    spin_tween:Play()
     
     local spin_conn
-    if spin_tween and spin_tween.Completed and type(spin_tween.Completed.Connect) == "function" then
-        spin_conn = spin_tween.Completed:Connect(function()
-            if logo and logo.Parent then
-                logo.Rotation = 0
-                if type(spin_tween.Play) == "function" then spin_tween:Play() end
-            else
-                if spin_conn and type(spin_conn.Disconnect) == "function" then spin_conn:Disconnect() end
-            end
-        end)
-    end
+    spin_conn = spin_tween.Completed:Connect(function()
+        if logo and logo.Parent then
+            logo.Rotation = 0
+            spin_tween:Play()
+        else
+            if spin_conn then spin_conn:Disconnect() end
+        end
+    end)
 
     task.delay(cfg.duration, function()
-        if spin_conn and type(spin_conn.Disconnect) == "function" then spin_conn:Disconnect() end
-        if spin_tween and type(spin_tween.Pause) == "function" then spin_tween:Pause() end
+        if spin_conn then spin_conn:Disconnect() end
+        if spin_tween then spin_tween:Pause() end
         
         if self.gui and self.gui:FindFirstChild("main") then
             self.gui.main.Visible = true
@@ -520,7 +505,7 @@ function library:window(props)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported and "supported" or "unsupported")
     
-    info_section:button({
+    library.button(info_section, {
         name = "join discord",
         callback = function()
             setclipboard(cfg.discord_link)
@@ -531,7 +516,7 @@ function library:window(props)
     local changelog_section = home_tab:section({ name = "changelog" })
     local changelog_text = "failed to load changelog."
     local success, data = pcall(function() return game:HttpGet(cfg.changelog_url) end)
-    if success and type(data) == "string" and string.sub(data, 1, 1) ~= "<" and #data > 10 then
+    if success and data and string.sub(data, 1, 1) ~= "<" and #data > 10 then
         changelog_text = parse_markdown(data)
     end
 
@@ -613,7 +598,7 @@ function library:window(props)
     local config_section = cfg.settings_tab:section({ name = "configs" })
     local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
 
-    config_section:button({ 
+    library.button(config_section, { 
         name = "save config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -627,29 +612,18 @@ function library:window(props)
         end 
     })
 
-    config_section:button({ 
+    library.button(config_section, { 
         name = "load config", 
         callback = function()
             local name = config_name_input.instance.Text
             if name == "" then return end
             local path = self.directory .. "/configs/" .. name .. ".json"
             if isfile(path) then
-                local file_data = readfile(path)
-                if type(file_data) == "string" then
-                    local success, data = pcall(function() return http_service:JSONDecode(file_data) end)
-                    if success and type(data) == "table" then
-                        for flag, val in next, data do
-                            if library.config_flags[flag] and type(library.config_flags[flag]) == "function" then 
-                                library.config_flags[flag](val) 
-                            end
-                        end
-                        self:notification({ text = "loaded config: " .. name })
-                    else
-                        self:notification({ text = "invalid config format!" })
-                    end
-                else
-                    self:notification({ text = "empty config file!" })
+                local data = http_service:JSONDecode(readfile(path))
+                for flag, val in next, data do
+                    if library.config_flags[flag] then library.config_flags[flag](val) end
                 end
+                self:notification({ text = "loaded config: " .. name })
             else
                 self:notification({ text = "config not found!" })
             end
@@ -661,14 +635,10 @@ function library:window(props)
         local files = listfiles(self.directory .. "/configs")
         local names = {}
         for _, file in next, files do
-            if type(file) == "string" then
-                local name = string.match(file, "([^/\\]+)%.json$")
-                if name then table.insert(names, name) end
-            end
+            local name = file:match("([^/\\]+)%.json$")
+            if name then table.insert(names, name) end
         end
-        if config_section.config_dd and type(config_section.config_dd.refresh) == "function" then 
-            config_section.config_dd:refresh(names) 
-        end
+        if config_section.config_dd then config_section.config_dd:refresh(names) end
     end
 
     config_section.config_dd = config_section:dropdown({ 
@@ -796,22 +766,19 @@ function library:tab(props)
         self:create("UIPadding", { Parent = list_frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
 
         self:connection(search_box:GetPropertyChangedSignal("Text"), function()
-            local text = search_box.Text
-            if type(text) == "string" then
-                text = string.lower(text)
-                for _, section in next, cfg.sections do
-                    local matched = false
-                    if string.find(string.lower(section.name), text) then matched = true end
-                    if not matched then
-                        for _, element in next, section.elements do
-                            if element.name and string.find(string.lower(element.name), text) then
-                                matched = true
-                                break
-                            end
+            local text = string.lower(search_box.Text)
+            for _, section in next, cfg.sections do
+                local matched = false
+                if string.find(string.lower(section.name), text) then matched = true end
+                if not matched then
+                    for _, element in next, section.elements do
+                        if element.name and string.find(string.lower(element.name), text) then
+                            matched = true
+                            break
                         end
                     end
-                    section.frame.Visible = matched
                 end
+                section.frame.Visible = matched
             end
         end)
     else
