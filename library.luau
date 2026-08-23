@@ -70,14 +70,21 @@ function library:change_accent(color)
 end
 
 function library:connection(signal, callback)
-    local conn = signal:Connect(callback)
-    table.insert(self.connections, conn)
-    return conn
+    if signal and type(signal.Connect) == "function" then
+        local conn = signal:Connect(callback)
+        table.insert(self.connections, conn)
+        return conn
+    end
+    return nil
 end
 
 function library:unload()
-    for _, conn in next, self.connections do if conn.Connected then conn:Disconnect() end end
-    for _, inst in next, self.instances do if inst and inst.Parent then inst:Destroy() end end
+    for _, conn in next, self.connections do 
+        if conn and type(conn.Disconnect) == "function" then conn:Disconnect() end 
+    end
+    for _, inst in next, self.instances do 
+        if inst and inst.Parent then inst:Destroy() end 
+    end
     if self.gui then self.gui:Destroy() end
     getgenv().library = nil
 end
@@ -85,7 +92,7 @@ end
 function library:get_icon(icon)
     if not icon then return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
     
-    if string.sub(icon, 1, 4) == "http" or string.sub(icon, 1, 7) == "rbxasset" then
+    if type(icon) == "string" and (string.sub(icon, 1, 4) == "http" or string.sub(icon, 1, 7) == "rbxasset") then
         return icon
     end
 
@@ -111,7 +118,7 @@ function library:get_icon(icon)
 
     for _, url in ipairs(urls) do
         local success, data = pcall(function() return game:HttpGet(url) end)
-        if success and data and #data > 100 then
+        if success and type(data) == "string" and #data > 100 then
             writefile(path, data)
             return getcustomasset(path)
         end
@@ -128,7 +135,7 @@ function library:get_icon(icon)
     }
     for _, q_url in ipairs(q_urls) do
         local q_success, q_data = pcall(function() return game:HttpGet(q_url) end)
-        if q_success and q_data and #q_data > 100 then
+        if q_success and type(q_data) == "string" and #q_data > 100 then
             writefile(q_path, q_data)
             return getcustomasset(q_path)
         end
@@ -138,21 +145,28 @@ function library:get_icon(icon)
 end
 
 local function parse_markdown(md)
+    if type(md) ~= "string" then return "invalid changelog" end
     local html = ""
     local in_code = false
-    for _, line in ipairs(string.split(md, "\n")) do
-        if line:match("^```") then
+    
+    local lines = {}
+    for line in string.gmatch(md .. "\n", "(.-)\n") do
+        table.insert(lines, line)
+    end
+    
+    for _, line in ipairs(lines) do
+        if string.sub(line, 1, 3) == "```" then
             in_code = not in_code
             html = html .. "<br/>"
         elseif not in_code then
-            if line:match("^### ") then
-                html = html .. '<font size="14"><b>' .. line:sub(5) .. '</b></font><br/>'
-            elseif line:match("^## ") then
-                html = html .. '<font size="16"><b>' .. line:sub(4) .. '</b></font><br/>'
-            elseif line:match("^# ") then
-                html = html .. '<font size="18"><b>' .. line:sub(3) .. '</b></font><br/>'
-            elseif line:match("^[%-%*] ") then
-                html = html .. '• ' .. line:sub(3) .. '<br/>'
+            if string.sub(line, 1, 4) == "### " then
+                html = html .. '<font size="14"><b>' .. string.sub(line, 5) .. '</b></font><br/>'
+            elseif string.sub(line, 1, 3) == "## " then
+                html = html .. '<font size="16"><b>' .. string.sub(line, 4) .. '</b></font><br/>'
+            elseif string.sub(line, 1, 2) == "# " then
+                html = html .. '<font size="18"><b>' .. string.sub(line, 3) .. '</b></font><br/>'
+            elseif string.sub(line, 1, 2) == "- " or string.sub(line, 1, 2) == "* " then
+                html = html .. '• ' .. string.sub(line, 3) .. '<br/>'
             else
                 html = html .. line .. '<br/>'
             end
@@ -220,21 +234,23 @@ function library:loading_screen(props)
 
     local spin_info = TweenInfo.new(1.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     local spin_tween = tween_service:Create(logo, spin_info, { Rotation = 360 })
-    spin_tween:Play()
+    if spin_tween and type(spin_tween.Play) == "function" then spin_tween:Play() end
     
     local spin_conn
-    spin_conn = spin_tween.Completed:Connect(function()
-        if logo and logo.Parent then
-            logo.Rotation = 0
-            spin_tween:Play()
-        else
-            if spin_conn then spin_conn:Disconnect() end
-        end
-    end)
+    if spin_tween and spin_tween.Completed and type(spin_tween.Completed.Connect) == "function" then
+        spin_conn = spin_tween.Completed:Connect(function()
+            if logo and logo.Parent then
+                logo.Rotation = 0
+                if type(spin_tween.Play) == "function" then spin_tween:Play() end
+            else
+                if spin_conn and type(spin_conn.Disconnect) == "function" then spin_conn:Disconnect() end
+            end
+        end)
+    end
 
     task.delay(cfg.duration, function()
-        if spin_conn then spin_conn:Disconnect() end
-        if spin_tween then spin_tween:Pause() end
+        if spin_conn and type(spin_conn.Disconnect) == "function" then spin_conn:Disconnect() end
+        if spin_tween and type(spin_tween.Pause) == "function" then spin_tween:Pause() end
         
         if self.gui and self.gui:FindFirstChild("main") then
             self.gui.main.Visible = true
@@ -515,7 +531,7 @@ function library:window(props)
     local changelog_section = home_tab:section({ name = "changelog" })
     local changelog_text = "failed to load changelog."
     local success, data = pcall(function() return game:HttpGet(cfg.changelog_url) end)
-    if success and data and string.sub(data, 1, 1) ~= "<" and #data > 10 then
+    if success and type(data) == "string" and string.sub(data, 1, 1) ~= "<" and #data > 10 then
         changelog_text = parse_markdown(data)
     end
 
@@ -618,11 +634,22 @@ function library:window(props)
             if name == "" then return end
             local path = self.directory .. "/configs/" .. name .. ".json"
             if isfile(path) then
-                local data = http_service:JSONDecode(readfile(path))
-                for flag, val in next, data do
-                    if library.config_flags[flag] then library.config_flags[flag](val) end
+                local file_data = readfile(path)
+                if type(file_data) == "string" then
+                    local success, data = pcall(function() return http_service:JSONDecode(file_data) end)
+                    if success and type(data) == "table" then
+                        for flag, val in next, data do
+                            if library.config_flags[flag] and type(library.config_flags[flag]) == "function" then 
+                                library.config_flags[flag](val) 
+                            end
+                        end
+                        self:notification({ text = "loaded config: " .. name })
+                    else
+                        self:notification({ text = "invalid config format!" })
+                    end
+                else
+                    self:notification({ text = "empty config file!" })
                 end
-                self:notification({ text = "loaded config: " .. name })
             else
                 self:notification({ text = "config not found!" })
             end
@@ -634,10 +661,14 @@ function library:window(props)
         local files = listfiles(self.directory .. "/configs")
         local names = {}
         for _, file in next, files do
-            local name = file:match("([^/\\]+)%.json$")
-            if name then table.insert(names, name) end
+            if type(file) == "string" then
+                local name = string.match(file, "([^/\\]+)%.json$")
+                if name then table.insert(names, name) end
+            end
         end
-        if config_section.config_dd then config_section.config_dd:refresh(names) end
+        if config_section.config_dd and type(config_section.config_dd.refresh) == "function" then 
+            config_section.config_dd:refresh(names) 
+        end
     end
 
     config_section.config_dd = config_section:dropdown({ 
@@ -765,19 +796,22 @@ function library:tab(props)
         self:create("UIPadding", { Parent = list_frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
 
         self:connection(search_box:GetPropertyChangedSignal("Text"), function()
-            local text = string.lower(search_box.Text)
-            for _, section in next, cfg.sections do
-                local matched = false
-                if string.find(string.lower(section.name), text) then matched = true end
-                if not matched then
-                    for _, element in next, section.elements do
-                        if element.name and string.find(string.lower(element.name), text) then
-                            matched = true
-                            break
+            local text = search_box.Text
+            if type(text) == "string" then
+                text = string.lower(text)
+                for _, section in next, cfg.sections do
+                    local matched = false
+                    if string.find(string.lower(section.name), text) then matched = true end
+                    if not matched then
+                        for _, element in next, section.elements do
+                            if element.name and string.find(string.lower(element.name), text) then
+                                matched = true
+                                break
+                            end
                         end
                     end
+                    section.frame.Visible = matched
                 end
-                section.frame.Visible = matched
             end
         end)
     else
@@ -1037,7 +1071,7 @@ function library:toggle(props)
         local pos = val and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2)
         tween_service:Create(switch_bg, TweenInfo.new(0.2), { BackgroundColor3 = color }):Play()
         tween_service:Create(switch_dot, TweenInfo.new(0.2), { Position = pos }):Play()
-        cfg.callback(val)
+        if type(cfg.callback) == "function" then cfg.callback(val) end
     end
 
     self:connection(toggle_frame.MouseButton1Click, function() cfg.set(not cfg.value) end)
@@ -1080,7 +1114,7 @@ function library:button(props)
         task.delay(0.1, function()
             tween_service:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = self.themes.preset.dropdown }):Play()
         end)
-        cfg.callback()
+        if type(cfg.callback) == "function" then cfg.callback() end
     end)
     if self.elements then table.insert(self.elements, cfg) end
     return cfg
@@ -1143,11 +1177,11 @@ function library:keybind(props)
         cfg.key = key
         library.flags[cfg.flag] = key
         bind_text.Text = key.Name
-        if cfg.conn then cfg.conn:Disconnect() end
+        if cfg.conn and type(cfg.conn.Disconnect) == "function" then cfg.conn:Disconnect() end
         cfg.conn = uis.InputBegan:Connect(function(input, gpe)
             if gpe then return end
             if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == key then
-                cfg.callback()
+                if type(cfg.callback) == "function" then cfg.callback() end
             end
         end)
     end
@@ -1162,7 +1196,7 @@ function library:keybind(props)
                     bind_input(input.KeyCode)
                 end
                 cfg.binding = false
-                conn:Disconnect()
+                if conn and type(conn.Disconnect) == "function" then conn:Disconnect() end
             end
         end)
     end)
@@ -1252,7 +1286,7 @@ function library:dropdown(props)
         cfg.value = val
         library.flags[cfg.flag] = val
         dd_text.Text = val
-        cfg.callback(val)
+        if type(cfg.callback) == "function" then cfg.callback(val) end
     end
 
     function cfg:refresh(opts)
@@ -1345,7 +1379,7 @@ function library:textbox(props)
 
     self:connection(tb_frame.FocusLost, function()
         library.flags[cfg.flag] = tb_frame.Text
-        cfg.callback(tb_frame.Text)
+        if type(cfg.callback) == "function" then cfg.callback(tb_frame.Text) end
     end)
 
     if cfg.default ~= "" then
@@ -1354,9 +1388,11 @@ function library:textbox(props)
     end
 
     library.config_flags[cfg.flag] = function(val)
-        tb_frame.Text = val
-        library.flags[cfg.flag] = val
-        cfg.callback(val)
+        if type(val) == "string" then
+            tb_frame.Text = val
+            library.flags[cfg.flag] = val
+            if type(cfg.callback) == "function" then cfg.callback(val) end
+        end
     end
     if self.elements then table.insert(self.elements, cfg) end
     return cfg
@@ -1436,7 +1472,7 @@ function library:slider(props)
         val_label.Text = tostring(val)
         local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
         fill.Size = UDim2.new(percent, 0, 1, 0)
-        cfg.callback(val)
+        if type(cfg.callback) == "function" then cfg.callback(val) end
     end
 
     self:connection(track.MouseButton1Down, function()
