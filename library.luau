@@ -59,6 +59,7 @@ end
 function library:get_icon(icon)
     if not icon then return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
     
+    -- allow direct rbxasset or http links
     if string.sub(icon, 1, 4) == "http" or string.sub(icon, 1, 7) == "rbxasset" then
         return icon
     end
@@ -68,15 +69,18 @@ function library:get_icon(icon)
     if not isfolder(icon_folder) then makefolder(icon_folder) end
 
     local file_name = icon
-    if not string.find(file_name, "%.png$") then
-        file_name = file_name .. ".png"
+    -- strip .png if user accidentally included it
+    if string.sub(file_name, -4):lower() == ".png" then
+        file_name = string.sub(file_name, 1, -5)
     end
+    file_name = file_name .. ".png"
 
     local path = icon_folder .. "/" .. file_name
     if isfile(path) then
         return getcustomasset(path)
     end
 
+    -- fallback to github
     local url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/" .. file_name
     local success, data = pcall(function() return game:HttpGet(url) end)
 
@@ -87,6 +91,7 @@ function library:get_icon(icon)
 
     warn("the prebuilt icon named '"..icon.."' could not be found. please look at the github to see all icons")
     
+    -- fallback to question.png
     local q_path = icon_folder .. "/question.png"
     if isfile(q_path) then
         return getcustomasset(q_path)
@@ -349,9 +354,7 @@ function library:window(props)
         end
     end)
 
-    self:connection(close_btn.MouseButton1Click, function()
-        self:unload()
-    end)
+    self:connection(close_btn.MouseButton1Click, function() self:unload() end)
 
     local minimized = false
     self:connection(minimize_btn.MouseButton1Click, function()
@@ -374,9 +377,7 @@ function library:window(props)
         panel_btn.Image = self:get_icon(target_icon)
         
         for _, tab in next, self.tabs do
-            if tab.text_label then
-                tab.text_label.Visible = not panel_collapsed
-            end
+            if tab.text_label then tab.text_label.Visible = not panel_collapsed end
         end
         pname_label.Visible = not panel_collapsed
         
@@ -389,6 +390,7 @@ function library:window(props)
 
     self.tabs = {}
 
+    -- auto create home tab
     local home_tab = self:tab({ name = "home", icon = "house", hidden_order = -1 })
     local home_section = home_tab:section({ name = "info" })
     home_section:add_info_row("welcome", "hello " .. player.DisplayName)
@@ -400,9 +402,7 @@ function library:window(props)
     cfg.settings_tab.frame.Visible = false
     cfg.settings_tab.button.Visible = false
 
-    self:connection(settings_btn.MouseButton1Click, function()
-        cfg.settings_tab:select()
-    end)
+    self:connection(settings_btn.MouseButton1Click, function() cfg.settings_tab:select() end)
 
     local config_section = cfg.settings_tab:section({ name = "configs" })
     local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
@@ -447,17 +447,13 @@ function library:window(props)
             local name = file:match("([^/\\]+)%.json$")
             if name then table.insert(names, name) end
         end
-        if config_section.config_dd then
-            config_section.config_dd:refresh(names)
-        end
+        if config_section.config_dd then config_section.config_dd:refresh(names) end
     end
 
     config_section.config_dd = config_section:dropdown({ 
         name = "saved configs", 
         options = {}, 
-        callback = function(val)
-            config_name_input.instance.Text = val
-        end
+        callback = function(val) config_name_input.instance.Text = val end
     })
     config_section:refresh_configs()
 
@@ -533,7 +529,7 @@ function library:tab(props)
         CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
         Visible = false,
-        Position = UDim2.new(0, 0,0, 0)
+        Position = UDim2.new(0, 0, 0, 0)
     })
     self:create("UIListLayout", { Parent = frame, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
     self:create("UIPadding", { Parent = frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
@@ -577,9 +573,7 @@ function library:tab(props)
         tween_service:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
     end
 
-    self:connection(button.MouseButton1Click, function()
-        cfg:select()
-    end)
+    self:connection(button.MouseButton1Click, function() cfg:select() end)
 
     return setmetatable(cfg, { __index = self })
 end
@@ -680,7 +674,7 @@ function library:section(props)
             Parent = self.holder,
             Size = UDim2.new(1, 0, 0, 24),
             BackgroundTransparency = 1
-        }
+        }) -- fixed syntax here
         self:create("TextLabel", {
             Name = "name",
             Parent = row,
