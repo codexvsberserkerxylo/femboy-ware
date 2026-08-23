@@ -1,14 +1,22 @@
-local gethui = type(gethui) == "function" and gethui or function() return game:GetService("CoreGui") end
-local makefolder = type(makefolder) == "function" and makefolder or function() end
+local gethui = type(gethui) == "function" and gethui or function() 
+    warn("your executor does not support the function 'gethui', it is not the script devs fault if it doesnt work correctly") 
+    return game:GetService("CoreGui") 
+end
+local makefolder = type(makefolder) == "function" and makefolder or function() 
+    warn("your executor does not support the function 'makefolder', it is not the script devs fault if it doesnt work correctly") 
+end
 local isfolder = type(isfolder) == "function" and isfolder or function() return false end
 local isfile = type(isfile) == "function" and isfile or function() return false end
-local writefile = type(writefile) == "function" and writefile or function() end
+local writefile = type(writefile) == "function" and writefile or function() 
+    warn("your executor does not support the function 'writefile', it is not the script devs fault if it doesnt work correctly") 
+end
 local readfile = type(readfile) == "function" and readfile or function() return nil end
 local listfiles = type(listfiles) == "function" and listfiles or function() return {} end
 local getcustomasset = type(getcustomasset) == "function" and getcustomasset or function() return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
 local getgenv = type(getgenv) == "function" and getgenv or function() return _G end
 local identifyexecutor = type(identifyexecutor) == "function" and identifyexecutor or function() return "Unknown" end
 local setclipboard = type(setclipboard) == "function" and setclipboard or function() end
+local queue_on_teleport = type(queue_on_teleport) == "function" and queue_on_teleport or function() warn("your executor does not support the function 'queue_on_teleport', it is not the script devs fault if it doesnt work correctly") end
 
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
@@ -16,6 +24,7 @@ local tween_service = game:GetService("TweenService")
 local http_service = game:GetService("HttpService")
 local coregui = game:GetService("CoreGui")
 local run_service = game:GetService("RunService")
+local marketplace = game:GetService("MarketplaceService")
 
 local player = players.LocalPlayer
 
@@ -29,6 +38,7 @@ local library = {
     instances = {},
     connections = {},
     accent_elements = {},
+    background_elements = {},
     active_notifs = {},
     current_tab = nil,
     directory = "Femboy-Ware",
@@ -36,7 +46,7 @@ local library = {
         preset = {
             background = Color3.fromRGB(30, 30, 30),
             sidebar = Color3.fromRGB(25, 25, 25),
-            accent = Color3.fromRGB(255, 105, 180),
+            accent = Color3.fromRGB(150, 150, 150),
             text = Color3.fromRGB(220, 220, 220),
             placeholder = Color3.fromRGB(140, 140, 140),
             stroke = Color3.fromRGB(50, 50, 50),
@@ -54,6 +64,8 @@ function library:create(class, props)
         inst[prop] = val
         if val == self.themes.preset.accent then
             table.insert(self.accent_elements, {inst = inst, prop = prop})
+        elseif val == self.themes.preset.background then
+            table.insert(self.background_elements, {inst = inst, prop = prop})
         end
     end
     table.insert(self.instances, inst)
@@ -63,6 +75,15 @@ end
 function library:change_accent(color)
     self.themes.preset.accent = color
     for _, data in ipairs(self.accent_elements) do
+        if data.inst and data.inst.Parent then
+            tween_service:Create(data.inst, TweenInfo.new(0.3), {[data.prop] = color}):Play()
+        end
+    end
+end
+
+function library:change_background(color)
+    self.themes.preset.background = color
+    for _, data in ipairs(self.background_elements) do
         if data.inst and data.inst.Parent then
             tween_service:Create(data.inst, TweenInfo.new(0.3), {[data.prop] = color}):Play()
         end
@@ -117,6 +138,8 @@ function library:get_icon(icon)
         end
     end
 
+    warn("the icon '"..icon.."' could not get found. please look at the docs for every icon")
+    
     local q_path = icon_folder .. "/question.png"
     if isfile(q_path) then
         return getcustomasset(q_path)
@@ -154,7 +177,9 @@ local function parse_markdown(md)
             end
             html = html .. "<br/>"
         elseif not in_code then
-            if string.sub(line, 1, 4) == "### " then
+            if string.sub(line, 1, 3) == "-# " then
+                html = html .. '<font size="12"><b>' .. string.sub(line, 4) .. '</b></font><br/>'
+            elseif string.sub(line, 1, 4) == "### " then
                 html = html .. '<font size="14"><b>' .. string.sub(line, 5) .. '</b></font><br/>'
             elseif string.sub(line, 1, 3) == "## " then
                 html = html .. '<font size="16"><b>' .. string.sub(line, 4) .. '</b></font><br/>'
@@ -510,18 +535,35 @@ function library:window(props)
     local ok, name = pcall(identifyexecutor)
     if ok and type(name) == "string" then exec_name = name end
 
-    local is_supported = false
+    local is_supported = "unsupported"
     for _, ex in ipairs(cfg.supported_executors) do
         if string.find(string.lower(exec_name), string.lower(ex)) then
-            is_supported = true
+            if string.lower(ex) == "xeno" or string.lower(ex) == "solara" then
+                is_supported = "partially supported"
+            else
+                is_supported = "supported"
+            end
             break
         end
     end
     
-    info_section:add_info_row("welcome", "hello " .. player.DisplayName)
-    info_section:add_info_row("script", cfg.title)
+    local game_name = "unknown"
+    local ok2, prod_info = pcall(function() return marketplace:GetProductInfo(game.PlaceId) end)
+    if ok2 and prod_info and prod_info.Name then game_name = prod_info.Name end
+    
+    local ping_val = "0ms"
+    local ok3, ping = pcall(function() return player:GetNetworkPing() end)
+    if ok3 and ping then ping_val = string.format("%.0fms", ping * 1000) end
+    
+    local region_val = "N/A"
+    local ok4, region = pcall(function() return game:GetService("LocalizationService").RobloxLocaleId end)
+    if ok4 and region then region_val = string.upper(region) end
+    
+    info_section:add_info_row("game", game_name)
+    info_section:add_info_row("latency", ping_val)
+    info_section:add_info_row("region", region_val)
     info_section:add_info_row("executor", exec_name)
-    info_section:add_info_row("support", is_supported and "supported" or "unsupported")
+    info_section:add_info_row("support", is_supported)
     
     library.button(info_section, {
         name = "join discord",
@@ -586,6 +628,22 @@ function library:window(props)
     self:connection(settings_btn.MouseButton1Click, function() cfg.settings_tab:select() end)
 
     local ui_section = cfg.settings_tab:section({ name = "ui" })
+    ui_section:dropdown({
+        name = "theme",
+        options = {"dark", "light", "amoled"},
+        default = "dark",
+        flag = "theme",
+        callback = function(val)
+            local themes = {
+                ["dark"] = {bg = Color3.fromRGB(30, 30, 30), sbar = Color3.fromRGB(25, 25, 25), text = Color3.fromRGB(220, 220, 220)},
+                ["light"] = {bg = Color3.fromRGB(240, 240, 240), sbar = Color3.fromRGB(220, 220, 220), text = Color3.fromRGB(30, 30, 30)},
+                ["amoled"] = {bg = Color3.fromRGB(0, 0, 0), sbar = Color3.fromRGB(10, 10, 10), text = Color3.fromRGB(255, 255, 255)}
+            }
+            if themes[val] then
+                self:change_background(themes[val].bg)
+            end
+        end
+    })
     ui_section:colorpicker({
         name = "accent color",
         default = library.themes.preset.accent,
@@ -638,6 +696,60 @@ function library:window(props)
         end 
     })
 
+    library.button(config_section, { 
+        name = "delete config", 
+        callback = function()
+            local name = config_name_input.instance.Text
+            if name == "" then return end
+            local path = self.directory .. "/configs/" .. name .. ".json"
+            if isfile(path) then
+                delfile(path)
+                self:notification({ text = "deleted config: " .. name })
+                config_section:refresh_configs()
+            else
+                self:notification({ text = "config not found!" })
+            end
+        end 
+    })
+
+    config_section:toggle({
+        name = "autoload config",
+        default = isfile(self.directory .. "/autoload.txt"),
+        flag = "autoload",
+        callback = function(val)
+            local path = self.directory .. "/autoload.txt"
+            if val then
+                writefile(path, config_name_input.instance.Text)
+                self:notification({ text = "autoload enabled" })
+            else
+                if isfile(path) then delfile(path) end
+                self:notification({ text = "autoload disabled" })
+            end
+        end
+    })
+
+    local auto_exec_section = cfg.settings_tab:section({ name = "auto execute" })
+    local auto_exec_input = auto_exec_section:textbox({ placeholder = "script source or url", default = "" })
+    auto_exec_section:toggle({
+        name = "auto execute on teleport",
+        default = false,
+        flag = "auto_exec",
+        callback = function(val)
+            if val then
+                local src = auto_exec_input.instance.Text
+                if string.sub(src, 1, 4) == "http" then
+                    local ok, data = pcall(function() return game:HttpGet(src) end)
+                    if ok then src = data end
+                end
+                queue_on_teleport(src)
+                self:notification({ text = "auto execute enabled" })
+            else
+                queue_on_teleport("")
+                self:notification({ text = "auto execute disabled" })
+            end
+        end
+    })
+
     function config_section:refresh_configs()
         if not isfolder(library.directory .. "/configs") then makefolder(library.directory .. "/configs") end
         local files = listfiles(library.directory .. "/configs")
@@ -655,6 +767,17 @@ function library:window(props)
         callback = function(val) config_name_input.instance.Text = val end
     })
     config_section:refresh_configs()
+
+    if isfile(library.directory .. "/autoload.txt") then
+        local name = readfile(library.directory .. "/autoload.txt")
+        local path = library.directory .. "/configs/" .. name .. ".json"
+        if isfile(path) then
+            local data = http_service:JSONDecode(readfile(path))
+            for flag, val in next, data do
+                if library.config_flags[flag] then library.config_flags[flag](val) end
+            end
+        end
+    end
 
     return setmetatable(cfg, { __index = self })
 end
@@ -830,8 +953,8 @@ function library:tab(props)
             old_tab.text_label.TextColor3 = library.themes.preset.placeholder
             
             old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
-            tween_service:Create(old_tab.frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
-            task.delay(0.3, function()
+            tween_service:Create(old_tab.frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
+            task.delay(0.4, function()
                 old_tab.frame.Visible = false
                 old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
             end)
@@ -844,7 +967,7 @@ function library:tab(props)
         
         frame.Visible = true
         frame.Position = UDim2.new(direction, 0, 0, 0)
-        tween_service:Create(frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
+        tween_service:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
     end
 
     self:connection(button.MouseButton1Click, function() cfg:select() end)
@@ -1011,7 +1134,7 @@ function library:toggle(props)
         Name = "name",
         Parent = toggle_frame,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, -40, 1, 0),
+        Size = UDim2.new(1, -50, 1, 0),
         Font = Enum.Font.Gotham,
         Text = cfg.name,
         TextColor3 = self.themes.preset.text,
@@ -1022,8 +1145,8 @@ function library:toggle(props)
     local switch_bg = self:create("Frame", {
         Name = "switch",
         Parent = toggle_frame,
-        Position = UDim2.new(1, -28, 0, 8),
-        Size = UDim2.new(0, 24, 0, 16),
+        Position = UDim2.new(1, -38, 0, 7),
+        Size = UDim2.new(0, 30, 0, 18),
         BackgroundColor3 = self.themes.preset.dropdown,
         BorderSizePixel = 0
     })
@@ -1032,7 +1155,7 @@ function library:toggle(props)
     local switch_dot = self:create("Frame", {
         Name = "dot",
         Parent = switch_bg,
-        Position = UDim2.new(0, 2, 0, 2),
+        Position = UDim2.new(0, 3, 0, 3),
         Size = UDim2.new(0, 12, 0, 12),
         BackgroundColor3 = self.themes.preset.text,
         BorderSizePixel = 0
@@ -1043,7 +1166,7 @@ function library:toggle(props)
         cfg.value = val
         library.flags[cfg.flag] = val
         local color = val and self.themes.preset.accent or self.themes.preset.dropdown
-        local pos = val and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2)
+        local pos = val and UDim2.new(1, -15, 0, 3) or UDim2.new(0, 3, 0, 3)
         tween_service:Create(switch_bg, TweenInfo.new(0.2), { BackgroundColor3 = color }):Play()
         tween_service:Create(switch_dot, TweenInfo.new(0.2), { Position = pos }):Play()
         if type(cfg.callback) == "function" then cfg.callback(val) end
@@ -1117,7 +1240,7 @@ function library:keybind(props)
         Name = "name",
         Parent = bind_frame,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, -70, 1, 0),
+        Size = UDim2.new(1, -80, 1, 0),
         Font = Enum.Font.Gotham,
         Text = cfg.name,
         TextColor3 = self.themes.preset.text,
@@ -1128,7 +1251,7 @@ function library:keybind(props)
     local bind_btn = self:create("TextButton", {
         Name = "bind",
         Parent = bind_frame,
-        Position = UDim2.new(1, -60, 0, 6),
+        Position = UDim2.new(1, -70, 0, 6),
         Size = UDim2.new(0, 60, 0, 20),
         BackgroundColor3 = self.themes.preset.dropdown,
         Text = "",
@@ -1245,7 +1368,7 @@ function library:dropdown(props)
         Image = self:get_icon("down")
     })
 
-    local dd_list = library:create("Frame", {
+    local dd_list = library:create("ScrollingFrame", {
         Name = "list",
         Parent = dd_frame,
         Position = UDim2.new(0, 0, 0, 44),
@@ -1253,6 +1376,10 @@ function library:dropdown(props)
         BackgroundColor3 = library.themes.preset.dropdown,
         BorderSizePixel = 0,
         Visible = false,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = library.themes.preset.accent,
         ClipsDescendants = true
     })
     library:create("UICorner", { Parent = dd_list, CornerRadius = UDim.new(0, 4) })
@@ -1301,7 +1428,8 @@ function library:dropdown(props)
 
     local function toggle_dropdown(open)
         cfg.open = open
-        local target_h = open and (dd_layout.AbsoluteContentSize.Y) or 0
+        local max_h = math.clamp(dd_layout.AbsoluteContentSize.Y, 0, 150)
+        local target_h = open and max_h or 0
         
         tween_service:Create(dd_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { 
             Size = UDim2.new(1, 0, 0, 42 + target_h) 
@@ -1439,6 +1567,17 @@ function library:slider(props)
     })
     self:create("UICorner", { Parent = fill, CornerRadius = UDim.new(1, 0) })
 
+    local knob = self:create("Frame", {
+        Name = "knob",
+        Parent = fill,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(1, 0, 0.5, 0),
+        Size = UDim2.new(0, 12, 0, 12),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 0
+    })
+    self:create("UICorner", { Parent = knob, CornerRadius = UDim.new(1, 0) })
+
     function cfg.set(val)
         val = math.clamp(val, cfg.min, cfg.max)
         local range = cfg.max - cfg.min
@@ -1468,7 +1607,7 @@ function library:slider(props)
     end)
     self:connection(uis.InputChanged, function(input)
         if cfg.dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            local percent = math.clamp((uis:GetMouseLocation().X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+            local percent = math.clamp((input.Position.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
             cfg.set(cfg.min + (cfg.max - cfg.min) * percent)
         end
     end)
@@ -1517,25 +1656,26 @@ function library:colorpicker(props)
         Name = "popup",
         Parent = self.gui,
         Visible = false,
-        Size = UDim2.new(0, 140, 0, 160),
+        Size = UDim2.new(0, 160, 0, 180),
         BackgroundColor3 = self.themes.preset.element_background,
         BorderSizePixel = 0,
         ZIndex = 10
     })
     self:create("UICorner", { Parent = popup, CornerRadius = UDim.new(0, 4) })
+    self:create("UIPadding", { Parent = popup, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
 
     local h, s, v = Color3.toHSV(cfg.default)
     h = (h == 0) and 0.001 or h
 
     local sv_box = self:create("TextButton", {
         Parent = popup,
-        Position = UDim2.new(0, 10, 0, 10),
-        Size = UDim2.new(0, 120, 0, 120),
+        Size = UDim2.new(1, 0, 0, 120),
         Text = "",
         BorderSizePixel = 0,
         ZIndex = 11,
         BackgroundColor3 = Color3.fromHSV(h, 1, 1)
     })
+    self:create("UICorner", { Parent = sv_box, CornerRadius = UDim.new(0, 4) })
     local white_frame = self:create("Frame", {
         Parent = sv_box,
         Size = UDim2.new(1, 0, 1, 0),
@@ -1560,12 +1700,13 @@ function library:colorpicker(props)
 
     local hue_bar = self:create("TextButton", {
         Parent = popup,
-        Position = UDim2.new(0, 10, 0, 140),
-        Size = UDim2.new(0, 120, 0, 10),
+        Position = UDim2.new(0, 0, 0, 130),
+        Size = UDim2.new(1, 0, 0, 12),
         Text = "",
         BorderSizePixel = 0,
         ZIndex = 11
     })
+    self:create("UICorner", { Parent = hue_bar, CornerRadius = UDim.new(1, 0) })
     self:create("UIGradient", {
         Parent = hue_bar,
         Color = ColorSequence.new({
@@ -1616,7 +1757,7 @@ function library:colorpicker(props)
     self:connection(cp_btn.MouseButton1Click, function()
         popup.Visible = not popup.Visible
         if popup.Visible then
-            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 100, 0, cp_btn.AbsolutePosition.Y - 160)
+            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 120, 0, cp_btn.AbsolutePosition.Y - 170)
         end
     end)
 
