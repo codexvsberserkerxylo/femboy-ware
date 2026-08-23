@@ -1,3 +1,14 @@
+-- executor function fallbacks (prevents "attempt to call a nil value")
+local gethui = gethui or function() return game:GetService("CoreGui") end
+local makefolder = makefolder or function() end
+local isfolder = isfolder or function() return false end
+local isfile = isfile or function() return false end
+local writefile = writefile or function() end
+local readfile = readfile or function() return nil end
+local listfiles = listfiles or function() return {} end
+local getcustomasset = getcustomasset or function() return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
+local getgenv = getgenv or function() return _G end
+
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local tween_service = game:GetService("TweenService")
@@ -59,7 +70,6 @@ end
 function library:get_icon(icon)
     if not icon then return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
     
-    -- allow direct rbxasset or http links
     if string.sub(icon, 1, 4) == "http" or string.sub(icon, 1, 7) == "rbxasset" then
         return icon
     end
@@ -69,7 +79,6 @@ function library:get_icon(icon)
     if not isfolder(icon_folder) then makefolder(icon_folder) end
 
     local file_name = icon
-    -- strip .png if user accidentally included it
     if string.sub(file_name, -4):lower() == ".png" then
         file_name = string.sub(file_name, 1, -5)
     end
@@ -80,7 +89,6 @@ function library:get_icon(icon)
         return getcustomasset(path)
     end
 
-    -- fallback to github
     local url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/" .. file_name
     local success, data = pcall(function() return game:HttpGet(url) end)
 
@@ -91,7 +99,6 @@ function library:get_icon(icon)
 
     warn("the prebuilt icon named '"..icon.."' could not be found. please look at the github to see all icons")
     
-    -- fallback to question.png
     local q_path = icon_folder .. "/question.png"
     if isfile(q_path) then
         return getcustomasset(q_path)
@@ -116,7 +123,7 @@ function library:loading_screen(props)
 
     local loader_gui = self:create("ScreenGui", {
         Name = "femboy_loader",
-        Parent = gethui() and gethui() or coregui,
+        Parent = gethui(),
         IgnoreGuiInset = true,
         DisplayOrder = 9999
     })
@@ -158,11 +165,11 @@ function library:loading_screen(props)
     end)
 
     task.delay(cfg.duration, function()
-        spin_conn:Disconnect()
+        if spin_conn then spin_conn:Disconnect() end
         tween_service:Create(screen, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
         tween_service:Create(logo, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
         tween_service:Create(text_label, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-        task.delay(0.5, function() loader_gui:Destroy() end)
+        task.delay(0.5, function() if loader_gui then loader_gui:Destroy() end end)
     end)
 end
 
@@ -176,7 +183,7 @@ function library:window(props)
 
     self.gui = self:create("ScreenGui", {
         Name = "femboy_ware",
-        Parent = gethui() and gethui() or coregui,
+        Parent = gethui(),
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn = false
     })
@@ -390,7 +397,6 @@ function library:window(props)
 
     self.tabs = {}
 
-    -- auto create home tab
     local home_tab = self:tab({ name = "home", icon = "house", hidden_order = -1 })
     local home_section = home_tab:section({ name = "info" })
     home_section:add_info_row("welcome", "hello " .. player.DisplayName)
@@ -674,7 +680,7 @@ function library:section(props)
             Parent = self.holder,
             Size = UDim2.new(1, 0, 0, 24),
             BackgroundTransparency = 1
-        }) -- fixed syntax here
+        })
         self:create("TextLabel", {
             Name = "name",
             Parent = row,
@@ -953,8 +959,7 @@ function library:dropdown(props)
     self:create("UIPadding", { Parent = dd_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
 
     local function set_height()
-        local count = 0
-        for _ in next, cfg.options do count += 1 end
+        local count = #cfg.options
         dd_list.Size = UDim2.new(1, 0, 0, math.clamp(count * 24 + 8, 0, 120))
     end
 
@@ -1122,7 +1127,7 @@ function library:slider(props)
         cfg.value = val
         self.flags[cfg.flag] = val
         val_label.Text = tostring(val)
-        local percent = (val - cfg.min) / (cfg.max - cfg.min)
+        local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
         fill.Size = UDim2.new(percent, 0, 1, 0)
         cfg.callback(val)
     end
@@ -1185,7 +1190,7 @@ function library:notification(props)
         tween_service:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Position = UDim2.new(1, 0, 1, -50)
         }):Play()
-        task.delay(0.5, function() notif:Destroy() end)
+        task.delay(0.5, function() if notif then notif:Destroy() end end)
     end)
 end
 
