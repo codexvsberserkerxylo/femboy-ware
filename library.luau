@@ -463,7 +463,7 @@ function library:window(props)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported and "supported" or "unsupported")
     
-    info_section:button({
+    library.button(info_section, {
         name = "join discord",
         callback = function()
             setclipboard(cfg.discord_link)
@@ -528,7 +528,7 @@ function library:window(props)
     local config_section = cfg.settings_tab:section({ name = "configs" })
     local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
 
-    config_section:button({ 
+    library.button(config_section, { 
         name = "save config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -542,7 +542,7 @@ function library:window(props)
         end 
     })
 
-    config_section:button({ 
+    library.button(config_section, { 
         name = "load config", 
         callback = function()
             local name = config_name_input.instance.Text
