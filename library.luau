@@ -36,7 +36,7 @@ local library = {
     active_notifs = {},
     current_tab = nil,
     directory = "Femboy-Ware",
-    drag_speed = 1,
+    smooth_drag = false,
     themes = {
         preset = {
             background = Color3.fromRGB(30, 30, 30),
@@ -69,23 +69,25 @@ end
 
 function library:change_accent(color)
     self.themes.preset.accent = color
+    local t_info = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     for _, data in ipairs(self.accent_elements) do
         if data.inst and data.inst.Parent then
-            tween_service:Create(data.inst, TweenInfo.new(0.3), {[data.prop] = color}):Play()
+            tween_service:Create(data.inst, t_info, {[data.prop] = color}):Play()
         end
     end
     for _, inst in ipairs(self.active_toggles) do
         if inst and inst.Parent then
-            tween_service:Create(inst, TweenInfo.new(0.3), {BackgroundColor3 = color}):Play()
+            tween_service:Create(inst, t_info, {BackgroundColor3 = color}):Play()
         end
     end
 end
 
 function library:change_background(color)
     self.themes.preset.background = color
+    local t_info = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     for _, data in ipairs(self.background_elements) do
         if data.inst and data.inst.Parent then
-            tween_service:Create(data.inst, TweenInfo.new(0.3), {[data.prop] = color}):Play()
+            tween_service:Create(data.inst, t_info, {[data.prop] = color}):Play()
         end
     end
 end
@@ -299,7 +301,7 @@ function library:window(props)
         discord_link = props.discord_link or "https://discord.gg/yourserver",
         supported_executors = props.supported_executors or {"xeno", "velocity", "solara", "synz", "potassium", "volt", "cosmic", "wave", "madium", "real", "sirhurt", "delta", "codex"},
         changelog_url = props.changelog_url or "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/changelog.md",
-        script_url = props.script_url or ""
+        script_url = props.script_url or "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/example.luau"
     }
 
     self.gui = self:create("ScreenGui", {
@@ -400,7 +402,7 @@ function library:window(props)
         AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 0, 0.5, 0),
         Size = UDim2.new(0, 32, 0, 32),
-        Image = "https://www.roblox.com/avatar-thumbnail/image?userId="..player.UserId.."&width=150&height=150&format=png"
+        Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..player.UserId.."&width=150&height=150&format=png"
     })
     self:create("UICorner", { Parent = avatar_img, CornerRadius = UDim.new(1, 0) })
 
@@ -479,8 +481,13 @@ function library:window(props)
     self:connection(uis.InputChanged, function(input)
         if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
             if dragging then
-                local delta = (input.Position - drag_start) * library.drag_speed
-                main_frame.Position = UDim2.new(start_pos.X.Scale, start_pos.X.Offset + delta.X, start_pos.Y.Scale, start_pos.Y.Offset + delta.Y)
+                local delta = input.Position - drag_start
+                local target_pos = UDim2.new(start_pos.X.Scale, start_pos.X.Offset + delta.X, start_pos.Y.Scale, start_pos.Y.Offset + delta.Y)
+                if library.smooth_drag then
+                    tween_service:Create(main_frame, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_pos}):Play()
+                else
+                    main_frame.Position = target_pos
+                end
             end
         end
     end)
@@ -552,16 +559,13 @@ function library:window(props)
     local ok2, prod_info = pcall(function() return marketplace:GetProductInfo(game.PlaceId) end)
     if ok2 and prod_info and prod_info.Name then game_name = prod_info.Name end
     
-    local ping_val = "0ms"
-    local ok3, ping = pcall(function() return player:GetNetworkPing() end)
-    if ok3 and ping then ping_val = string.format("%.0fms", ping * 1000) end
+    local latency_label = info_section:add_info_row("latency", "0ms")
     
     local region_val = "N/A"
     local ok4, region = pcall(function() return game:GetService("LocalizationService").RobloxLocaleId end)
     if ok4 and region then region_val = string.upper(region) end
     
     info_section:add_info_row("game", game_name)
-    info_section:add_info_row("latency", ping_val)
     info_section:add_info_row("region", region_val)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported)
@@ -573,6 +577,16 @@ function library:window(props)
             self:notification({ text = "discord link copied to clipboard!" })
         end
     })
+
+    task.spawn(function()
+        while true do
+            local ok3, ping = pcall(function() return player:GetNetworkPing() end)
+            if ok3 and ping and latency_label and latency_label.Parent then
+                latency_label.Text = string.format("%.0fms", ping * 1000)
+            end
+            task.wait(1)
+        end
+    end)
 
     local changelog_section = home_tab:section({ name = "changelog" })
     local changelog_text = "failed to load changelog."
@@ -598,7 +612,7 @@ function library:window(props)
         Size = UDim2.new(1, -8, 1, -8),
         ScrollBarThickness = 4,
         ScrollBarImageColor3 = self.themes.preset.accent,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
+        CanvasSize = UDim2.new(0, 0, 0,0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
         BorderSizePixel = 0
     })
@@ -653,12 +667,12 @@ function library:window(props)
             self:change_accent(color)
         end
     })
-    ui_section:slider({
-        name = "drag speed",
-        min = 0.1, max = 2, default = 1,
-        flag = "drag_speed",
+    ui_section:toggle({
+        name = "smooth dragging",
+        default = false,
+        flag = "smooth_drag",
         callback = function(val)
-            library.drag_speed = val
+            library.smooth_drag = val
         end
     })
     ui_section:keybind({
@@ -854,10 +868,18 @@ function library:tab(props)
 
     local list_frame
     if cfg.search_enabled then
-        local search_box = self:create("TextBox", {
-            Name = "search",
+        local search_container = self:create("Frame", {
+            Name = "search_container",
             Parent = frame,
             Size = UDim2.new(1, 0, 0, 32),
+            BackgroundTransparency = 1
+        })
+
+        local search_box = self:create("TextBox", {
+            Name = "search",
+            Parent = search_container,
+            Position = UDim2.new(0, 30, 0, 0),
+            Size = UDim2.new(1, -30, 1, 0),
             BackgroundColor3 = self.themes.preset.dropdown,
             Text = "",
             PlaceholderText = "search...",
@@ -871,11 +893,11 @@ function library:tab(props)
             TextYAlignment = Enum.TextYAlignment.Center
         })
         self:create("UICorner", { Parent = search_box, CornerRadius = UDim.new(0, 4) })
-        self:create("UIPadding", { Parent = search_box, PaddingLeft = UDim.new(0, 30) })
+        self:create("UIPadding", { Parent = search_box, PaddingLeft = UDim.new(0, 8) })
+        
         local search_icon = self:create("ImageLabel", {
-            Parent = search_box,
-            AnchorPoint = Vector2.new(0, 0.5),
-            Position = UDim2.new(0, 8, 0.5, 0),
+            Parent = search_container,
+            Position = UDim2.new(0, 8, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
             BackgroundTransparency = 1,
             Image = self:get_icon("search")
@@ -953,6 +975,7 @@ function library:tab(props)
             old_tab.text_label.TextColor3 = library.themes.preset.placeholder
             
             old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
+            old_tab.frame.ZIndex = 3
             tween_service:Create(old_tab.frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
             task.delay(0.4, function()
                 old_tab.frame.Visible = false
@@ -966,7 +989,7 @@ function library:tab(props)
         text_label.TextColor3 = library.themes.preset.text
         
         frame.Visible = true
-        frame.ZIndex = 3
+        frame.ZIndex = 4
         frame.Position = UDim2.new(direction, 0, 0, 0)
         tween_service:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
     end
@@ -1095,7 +1118,7 @@ function library:section(props)
             TextXAlignment = Enum.TextXAlignment.Left,
             TextYAlignment = Enum.TextYAlignment.Center
         })
-        self:create("TextLabel", {
+        local val_label = self:create("TextLabel", {
             Name = "val",
             Parent = row,
             BackgroundTransparency = 1,
@@ -1108,6 +1131,7 @@ function library:section(props)
             TextXAlignment = Enum.TextXAlignment.Right,
             TextYAlignment = Enum.TextYAlignment.Center
         })
+        return val_label
     end
 
     if self.sections then table.insert(self.sections, cfg) end
@@ -1570,8 +1594,8 @@ function library:slider(props)
     local track = self:create("TextButton", {
         Name = "track",
         Parent = s_frame,
-        Position = UDim2.new(0, 0, 0, 22),
-        Size = UDim2.new(1, 0, 0, 8),
+        Position = UDim2.new(0, 0, 0, 20),
+        Size = UDim2.new(1, 0, 0, 14),
         BackgroundColor3 = self.themes.preset.dropdown,
         Text = "",
         AutoButtonColor = false,
@@ -1590,10 +1614,10 @@ function library:slider(props)
 
     local knob = self:create("Frame", {
         Name = "knob",
-        Parent = fill,
+        Parent = track,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(1, 0, 0.5, 0),
-        Size = UDim2.new(0, 12, 0, 12),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.new(0, 14, 0, 14),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0
     })
@@ -1614,10 +1638,15 @@ function library:slider(props)
         library.flags[cfg.flag] = val
         val_label.Text = tostring(val)
         local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
-        local target_size = UDim2.new(percent, 0, 1, 0)
-        local target_pos = UDim2.new(percent, 0, 0.5, 0)
-        tween_service:Create(fill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = target_size}):Play()
-        tween_service:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_pos}):Play()
+        
+        local target_fill_size = UDim2.new(percent, 0, 1, 0)
+        local usable_width = track.AbsoluteSize.X - knob.AbsoluteSize.X
+        local knob_x = (knob.AbsoluteSize.X / 2) + percent * usable_width
+        local target_knob_pos = UDim2.new(0, knob_x, 0.5, 0)
+        
+        tween_service:Create(fill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = target_fill_size}):Play()
+        tween_service:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_knob_pos}):Play()
+        
         if type(cfg.callback) == "function" then cfg.callback(val) end
     end
 
@@ -1680,20 +1709,20 @@ function library:colorpicker(props)
         Name = "popup",
         Parent = self.gui,
         Visible = false,
-        Size = UDim2.new(0, 160, 0, 180),
+        Size = UDim2.new(0, 230, 0, 160),
         BackgroundColor3 = self.themes.preset.element_background,
         BorderSizePixel = 0,
         ZIndex = 10
     })
     self:create("UICorner", { Parent = popup, CornerRadius = UDim.new(0, 4) })
-    self:create("UIPadding", { Parent = popup, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
+    self:create("UIPadding", { Parent = popup, PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) })
 
     local h, s, v = Color3.toHSV(cfg.default)
     h = (h == 0) and 0.001 or h
 
     local sv_box = self:create("TextButton", {
         Parent = popup,
-        Size = UDim2.new(1, 0, 0, 120),
+        Size = UDim2.new(0, 180, 0, 140),
         Text = "",
         BorderSizePixel = 0,
         ZIndex = 11,
@@ -1724,8 +1753,8 @@ function library:colorpicker(props)
 
     local hue_bar = self:create("TextButton", {
         Parent = popup,
-        Position = UDim2.new(0, 0, 0, 130),
-        Size = UDim2.new(1, 0, 0, 12),
+        Position = UDim2.new(0, 195, 0, 0),
+        Size = UDim2.new(0, 15, 0, 140),
         Text = "",
         BorderSizePixel = 0,
         ZIndex = 11
@@ -1770,8 +1799,8 @@ function library:colorpicker(props)
             v = 1 - rel_y
             update_color()
         elseif dragging_hue then
-            local rel_x = math.clamp((input.Position.X - hue_bar.AbsolutePosition.X) / hue_bar.AbsoluteSize.X, 0, 1)
-            h = rel_x
+            local rel_y = math.clamp((input.Position.Y - hue_bar.AbsolutePosition.Y) / hue_bar.AbsoluteSize.Y, 0, 1)
+            h = 1 - rel_y
             update_color()
         end
     end)
@@ -1781,7 +1810,7 @@ function library:colorpicker(props)
     self:connection(cp_btn.MouseButton1Click, function()
         popup.Visible = not popup.Visible
         if popup.Visible then
-            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 120, 0, cp_btn.AbsolutePosition.Y - 170)
+            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 190, 0, cp_btn.AbsolutePosition.Y - 150)
         end
     end)
 
