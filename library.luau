@@ -141,9 +141,17 @@ local function parse_markdown(md)
     if type(md) ~= "string" then return "invalid changelog" end
     local html = ""
     local in_code = false
+    local in_diff = false
+    
     for line in string.gmatch(md .. "\n", "(.-)\n") do
         if string.sub(line, 1, 3) == "```" then
+            local lang = string.match(line, "```(%w+)")
             in_code = not in_code
+            if in_code then
+                in_diff = (lang == "diff")
+            else
+                in_diff = false
+            end
             html = html .. "<br/>"
         elseif not in_code then
             if string.sub(line, 1, 4) == "### " then
@@ -158,7 +166,17 @@ local function parse_markdown(md)
                 html = html .. line .. '<br/>'
             end
         else
-            html = html .. '<font color="#8c8c8c">' .. line .. '</font><br/>'
+            if in_diff then
+                if string.sub(line, 1, 1) == "+" then
+                    html = html .. '<font color="#50ff80">' .. line .. '</font><br/>'
+                elseif string.sub(line, 1, 1) == "-" then
+                    html = html .. '<font color="#ff5050">' .. line .. '</font><br/>'
+                else
+                    html = html .. '<font color="#8c8c8c">' .. line .. '</font><br/>'
+                end
+            else
+                html = html .. '<font color="#8c8c8c">' .. line .. '</font><br/>'
+            end
         end
     end
     return html
@@ -631,8 +649,8 @@ function library:window(props)
     })
 
     function config_section:refresh_configs()
-        if not isfolder(self.directory .. "/configs") then makefolder(self.directory .. "/configs") end
-        local files = listfiles(self.directory .. "/configs")
+        if not isfolder(library.directory .. "/configs") then makefolder(library.directory .. "/configs") end
+        local files = listfiles(library.directory .. "/configs")
         local names = {}
         for _, file in next, files do
             local name = file:match("([^/\\]+)%.json$")
@@ -921,7 +939,7 @@ function library:section(props)
     cfg.frame = section_frame
 
     self:connection(elements_layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-        local target_height = elements_layout.AbsoluteContentSize.Y
+        local target_height = elements_layout.AbsoluteContentSize.Y + 12 -- 4 top + 8 bottom padding
         local target_frame_size = target_height + 32
         if cfg.expanded then
             elements_holder.Size = UDim2.new(1, 0, 0, target_height)
@@ -932,7 +950,7 @@ function library:section(props)
     self:connection(header.MouseButton1Click, function()
         cfg.expanded = not cfg.expanded
         
-        local target_height = cfg.expanded and (elements_layout.AbsoluteContentSize.Y) or 0
+        local target_height = cfg.expanded and (elements_layout.AbsoluteContentSize.Y + 12) or 0
         local target_frame_size = target_height + 32
         local target_rot = cfg.expanded and 0 or 180
         
@@ -1196,7 +1214,7 @@ function library:dropdown(props)
         Size = UDim2.new(1, 0, 0, 16),
         Font = Enum.Font.Gotham,
         Text = cfg.name,
-        TextColor3 = self.themes.preset.text,
+        TextColor3 = library.themes.preset.text,
         TextSize = 13,
         TextXAlignment = Enum.TextXAlignment.Left
     })
@@ -1206,7 +1224,7 @@ function library:dropdown(props)
         Parent = dd_frame,
         Position = UDim2.new(0, 0, 0, 18),
         Size = UDim2.new(1, 0, 0, 24),
-        BackgroundColor3 = self.themes.preset.dropdown,
+        BackgroundColor3 = library.themes.preset.dropdown,
         Text = "",
         BorderSizePixel = 0,
         AutoButtonColor = false
@@ -1221,7 +1239,7 @@ function library:dropdown(props)
         Size = UDim2.new(1, -24, 1, 0),
         Font = Enum.Font.Gotham,
         Text = "...",
-        TextColor3 = self.themes.preset.text,
+        TextColor3 = library.themes.preset.text,
         TextSize = 12,
         TextXAlignment = Enum.TextXAlignment.Left
     })
@@ -1240,7 +1258,7 @@ function library:dropdown(props)
         Parent = dd_frame,
         Position = UDim2.new(0, 0, 0, 44),
         Size = UDim2.new(1, 0, 0, 0),
-        BackgroundColor3 = self.themes.preset.dropdown,
+        BackgroundColor3 = library.themes.preset.dropdown,
         BorderSizePixel = 0,
         Visible = false,
         ClipsDescendants = true
@@ -1278,11 +1296,11 @@ function library:dropdown(props)
                 Size = UDim2.new(1, -8, 1, 0),
                 Font = Enum.Font.Gotham,
                 Text = opt,
-                TextColor3 = self.themes.preset.text,
+                TextColor3 = library.themes.preset.text,
                 TextSize = 12,
                 TextXAlignment = Enum.TextXAlignment.Left
             })
-            self:connection(opt_btn.MouseButton1Click, function()
+            library:connection(opt_btn.MouseButton1Click, function()
                 cfg.set(opt)
                 cfg.open = false
                 tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = 0 }):Play()
