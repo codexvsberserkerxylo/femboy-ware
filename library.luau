@@ -1442,6 +1442,27 @@ function library:dropdown(props)
         if type(cfg.callback) == "function" then cfg.callback(val) end
     end
 
+        local function toggle_dropdown(open)
+        cfg.open = open
+        local max_h = math.clamp(dd_layout.AbsoluteContentSize.Y, 0, 150)
+        local target_h = open and max_h or 0
+        
+        tween_service:Create(dd_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { 
+            Size = UDim2.new(1, 0, 0, 42 + target_h) 
+        }):Play()
+        
+        tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = open and 180 or 0 }):Play()
+        
+        if open then
+            dd_list.Visible = true
+            dd_list.Size = UDim2.new(1, 0, 0, 0)
+            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_h) }):Play()
+        else
+            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(1, 0, 0, 0) }):Play()
+            task.delay(0.2, function() if not cfg.open then dd_list.Visible = false end end)
+        end
+    end
+
     function cfg:refresh(opts)
         cfg.options = opts
         for _, child in next, dd_list:GetChildren() do
@@ -1472,27 +1493,6 @@ function library:dropdown(props)
                 cfg.set(opt)
                 toggle_dropdown(false)
             end)
-        end
-    end
-
-    local function toggle_dropdown(open)
-        cfg.open = open
-        local max_h = math.clamp(dd_layout.AbsoluteContentSize.Y, 0, 150)
-        local target_h = open and max_h or 0
-        
-        tween_service:Create(dd_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { 
-            Size = UDim2.new(1, 0, 0, 42 + target_h) 
-        }):Play()
-        
-        tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = open and 180 or 0 }):Play()
-        
-        if open then
-            dd_list.Visible = true
-            dd_list.Size = UDim2.new(1, 0, 0, 0)
-            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_h) }):Play()
-        else
-            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(1, 0, 0, 0) }):Play()
-            task.delay(0.2, function() if not cfg.open then dd_list.Visible = false end end)
         end
     end
 
