@@ -69,25 +69,29 @@ end
 
 function library:change_accent(color)
     self.themes.preset.accent = color
-    local t_info = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local t_info = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    
     for _, data in ipairs(self.accent_elements) do
         if data.inst and data.inst.Parent then
-            tween_service:Create(data.inst, t_info, {[data.prop] = color}):Play()
+            local tw = tween_service:Create(data.inst, t_info, {[data.prop] = color})
+            tw:Play()
         end
     end
     for _, inst in ipairs(self.active_toggles) do
         if inst and inst.Parent then
-            tween_service:Create(inst, t_info, {BackgroundColor3 = color}):Play()
+            local tw = tween_service:Create(inst, t_info, {BackgroundColor3 = color})
+            tw:Play()
         end
     end
 end
 
 function library:change_background(color)
     self.themes.preset.background = color
-    local t_info = TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    local t_info = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     for _, data in ipairs(self.background_elements) do
         if data.inst and data.inst.Parent then
-            tween_service:Create(data.inst, t_info, {[data.prop] = color}):Play()
+            local tw = tween_service:Create(data.inst, t_info, {[data.prop] = color})
+            tw:Play()
         end
     end
 end
@@ -521,14 +525,14 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0.5, -16, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -897,7 +901,7 @@ function library:tab(props)
         
         local search_icon = self:create("ImageLabel", {
             Parent = search_container,
-            Position = UDim2.new(0, 8, 0, 8),
+            Position = UDim2.new(0, 8, 0,8),
             Size = UDim2.new(0, 16, 0, 16),
             BackgroundTransparency = 1,
             Image = self:get_icon("search")
@@ -1616,7 +1620,7 @@ function library:slider(props)
         Name = "knob",
         Parent = track,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0, 7, 0.5, 0),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
         Size = UDim2.new(0, 14, 0, 14),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0
@@ -1640,9 +1644,9 @@ function library:slider(props)
         local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
         
         local target_fill_size = UDim2.new(percent, 0, 1, 0)
-        local usable_width = track.AbsoluteSize.X - knob.AbsoluteSize.X
-        local target_x = (percent * usable_width) + (knob.AbsoluteSize.X / 2)
-        local target_knob_pos = UDim2.new(0, target_x, 0.5, 0)
+        -- Perfect math to keep knob perfectly inside the track without using AbsoluteSize
+        local knob_offset = 7 - (percent * 14)
+        local target_knob_pos = UDim2.new(percent, knob_offset, 0.5, 0)
         
         tween_service:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = target_fill_size}):Play()
         tween_service:Create(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_knob_pos}):Play()
@@ -1808,7 +1812,8 @@ function library:colorpicker(props)
         TextColor3 = self.themes.preset.text,
         TextSize = 12,
         BorderSizePixel = 0,
-        ZIndex = 101
+        ZIndex = 101,
+        ClearTextOnFocus = false 
     })
     self:create("UICorner", { Parent = hex_box, CornerRadius = UDim.new(0, 4) })
 
@@ -1868,7 +1873,8 @@ function library:colorpicker(props)
     self:connection(cp_btn.MouseButton1Click, function()
         popup.Visible = not popup.Visible
         if popup.Visible then
-            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 180, 0, cp_btn.AbsolutePosition.Y - 180)
+            -- Position it perfectly to the left of the button
+            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 220, 0, cp_btn.AbsolutePosition.Y - 80)
         end
     end)
 
