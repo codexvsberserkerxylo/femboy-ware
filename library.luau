@@ -1,3 +1,15 @@
+local gethui = type(gethui) == "function" and gethui or function() return game:GetService("CoreGui") end
+local makefolder = type(makefolder) == "function" and makefolder or function() end
+local isfolder = type(isfolder) == "function" and isfolder or function() return false end
+local isfile = type(isfile) == "function" and isfile or function() return false end
+local writefile = type(writefile) == "function" and writefile or function() end
+local readfile = type(readfile) == "function" and readfile or function() return nil end
+local listfiles = type(listfiles) == "function" and listfiles or function() return {} end
+local getcustomasset = type(getcustomasset) == "function" and getcustomasset or function() return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
+local getgenv = type(getgenv) == "function" and getgenv or function() return _G end
+local identifyexecutor = type(identifyexecutor) == "function" and identifyexecutor or function() return "Unknown" end
+local setclipboard = type(setclipboard) == "function" and setclipboard or function() end
+
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local tween_service = game:GetService("TweenService")
@@ -126,7 +138,7 @@ function library:loading_screen(props)
 
     local loader_gui = self:create("ScreenGui", {
         Name = "femboy_loader",
-        Parent = gethui() or coregui,
+        Parent = gethui(),
         IgnoreGuiInset = true,
         DisplayOrder = 9999
     })
@@ -209,7 +221,7 @@ function library:window(props)
 
     self.gui = self:create("ScreenGui", {
         Name = "femboy_ware",
-        Parent = gethui() or coregui,
+        Parent = gethui(),
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn = false
     })
@@ -239,8 +251,8 @@ function library:window(props)
         Name = "icon",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 10, 0, 6),
-        Size = UDim2.new(0, 28, 0, 28),
+        Position = UDim2.new(0, 10, 0, 4),
+        Size = UDim2.new(0, 32, 0, 32),
         Image = self:get_icon(cfg.icon)
     })
 
@@ -248,7 +260,7 @@ function library:window(props)
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 48, 0, 0),
+        Position = UDim2.new(0, 50, 0, 0),
         Size = UDim2.new(1, -200, 1, 0),
         Font = Enum.Font.GothamBold,
         RichText = true,
@@ -344,8 +356,8 @@ function library:window(props)
         Name = "minimize",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -62, 0, 10),
-        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(1, -68, 0, 9),
+        Size = UDim2.new(0, 21, 0, 21),
         Image = self:get_icon("minimize")
     })
 
@@ -353,8 +365,8 @@ function library:window(props)
         Name = "settings",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -90, 0, 10),
-        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(1, -101, 0, 9),
+        Size = UDim2.new(0, 21, 0, 21),
         Image = self:get_icon("settings")
     })
 
@@ -362,8 +374,8 @@ function library:window(props)
         Name = "panel",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -118, 0, 10),
-        Size = UDim2.new(0, 20, 0, 20),
+        Position = UDim2.new(1, -134, 0, 9),
+        Size = UDim2.new(0, 21, 0, 21),
         Image = self:get_icon("panel-close")
     })
 
@@ -416,7 +428,7 @@ function library:window(props)
         for _, tab in next, self.tabs do
             if tab.text_label then tab.text_label.Visible = not panel_collapsed end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 24, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0.5, -8, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
@@ -435,12 +447,8 @@ function library:window(props)
     
     local info_section = home_tab:section({ name = "info" })
     local exec_name = "Unknown"
-    if type(identifyexecutor) == "function" then
-        local ok, name = pcall(identifyexecutor)
-        if ok and type(name) == "string" then exec_name = name end
-    elseif type(identifyexecutor) == "string" then
-        exec_name = identifyexecutor
-    end
+    local ok, name = pcall(identifyexecutor)
+    if ok and type(name) == "string" then exec_name = name end
 
     local is_supported = false
     for _, ex in ipairs(cfg.supported_executors) do
@@ -458,9 +466,7 @@ function library:window(props)
     info_section:button({
         name = "join discord",
         callback = function()
-            pcall(function()
-                if type(setclipboard) == "function" then setclipboard(cfg.discord_link) end
-            end)
+            setclipboard(cfg.discord_link)
             self:notification({ text = "discord link copied to clipboard!" })
         end
     })
@@ -617,8 +623,8 @@ function library:tab(props)
         Name = "icon",
         Parent = button,
         BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0, 24, 0.5, 0),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 12, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
     })
