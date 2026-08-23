@@ -126,7 +126,7 @@ function library:loading_screen(props)
 
     local loader_gui = self:create("ScreenGui", {
         Name = "femboy_loader",
-        Parent = gethui(),
+        Parent = gethui() or coregui,
         IgnoreGuiInset = true,
         DisplayOrder = 9999
     })
@@ -209,7 +209,7 @@ function library:window(props)
 
     self.gui = self:create("ScreenGui", {
         Name = "femboy_ware",
-        Parent = gethui(),
+        Parent = gethui() or coregui,
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn = false
     })
@@ -397,7 +397,7 @@ function library:window(props)
         local target_size = minimized and UDim2.new(cfg.size.X.Scale, cfg.size.X.Offset, 0, 40) or cfg.size
         minimize_btn.Image = minimized and self:get_icon("maximize") or self:get_icon("minimize")
         content.Visible = not minimized
-        tween_service:Create(main_frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Quart), { Size = target_size }):Play()
+        tween_service:Create(main_frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Size = target_size }):Play()
     end)
 
     local panel_collapsed = false
@@ -416,7 +416,7 @@ function library:window(props)
         for _, tab in next, self.tabs do
             if tab.text_label then tab.text_label.Visible = not panel_collapsed end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0, 13, 0.5, 0) or UDim2.new(0, 16, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 24, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
@@ -434,7 +434,14 @@ function library:window(props)
     local home_tab = self:tab({ name = "home", icon = "house", hidden_order = -1 })
     
     local info_section = home_tab:section({ name = "info" })
-    local exec_name = identifyexecutor()
+    local exec_name = "Unknown"
+    if type(identifyexecutor) == "function" then
+        local ok, name = pcall(identifyexecutor)
+        if ok and type(name) == "string" then exec_name = name end
+    elseif type(identifyexecutor) == "string" then
+        exec_name = identifyexecutor
+    end
+
     local is_supported = false
     for _, ex in ipairs(cfg.supported_executors) do
         if string.find(string.lower(exec_name), string.lower(ex)) then
@@ -451,7 +458,9 @@ function library:window(props)
     info_section:button({
         name = "join discord",
         callback = function()
-            pcall(function() setclipboard(cfg.discord_link) end)
+            pcall(function()
+                if type(setclipboard) == "function" then setclipboard(cfg.discord_link) end
+            end)
             self:notification({ text = "discord link copied to clipboard!" })
         end
     })
@@ -459,7 +468,9 @@ function library:window(props)
     local changelog_section = home_tab:section({ name = "changelog" })
     local changelog_text = "failed to load changelog."
     local success, data = pcall(function() return game:HttpGet(cfg.changelog_url) end)
-    if success and data then changelog_text = data end
+    if success and data and string.sub(data, 1, 1) ~= "<" and #data > 10 then
+        changelog_text = data
+    end
 
     local cl_frame = self:create("Frame", {
         Name = "cl_frame",
@@ -606,8 +617,8 @@ function library:tab(props)
         Name = "icon",
         Parent = button,
         BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 16, 0.5, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0, 24, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
     })
@@ -846,31 +857,34 @@ function library:section(props)
         local row = self:create("Frame", {
             Name = name,
             Parent = self.holder,
-            Size = UDim2.new(1, 0, 0, 24),
+            Size = UDim2.new(1, 0, 0, 28),
             BackgroundTransparency = 1
         })
         self:create("TextLabel", {
             Name = "name",
             Parent = row,
             BackgroundTransparency = 1,
-            Size = UDim2.new(0.5, 0, 1, 0),
+            Position = UDim2.new(0, 4, 0, 0),
+            Size = UDim2.new(0.5, -4, 1, 0),
             Font = Enum.Font.Gotham,
             Text = name,
             TextColor3 = self.themes.preset.placeholder,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Left
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center
         })
         self:create("TextLabel", {
             Name = "val",
             Parent = row,
             BackgroundTransparency = 1,
             Position = UDim2.new(0.5, 0, 0, 0),
-            Size = UDim2.new(0.5, 0, 1, 0),
+            Size = UDim2.new(0.5, -4, 1, 0),
             Font = Enum.Font.GothamBold,
             Text = val,
             TextColor3 = self.themes.preset.text,
-            TextSize = 12,
-            TextXAlignment = Enum.TextXAlignment.Right
+            TextSize = 13,
+            TextXAlignment = Enum.TextXAlignment.Right,
+            TextYAlignment = Enum.TextYAlignment.Center
         })
     end
 
