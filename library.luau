@@ -1,18 +1,10 @@
---[=[
- d888b  db    db d888888b      .d888b.      db      db    db  .d8b.  
-88' Y8b 88    88   `88'        VP  `8D      88      88    88 d8' `8b 
-88      88    88    88            odD'      88      88    88 88ooo88 
-88  ooo 88    88    88          .88'        88      88    88 88~~~88 
-88. ~8~ 88b  d88   .88.        j88.         88booo. 88b  d88 88   88 
- Y888P  ~Y8888P' Y888888P      888888D      Y88888P ~Y8888P' YP   YP 
-]=]
-
 -- services
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local tween_service = game:GetService("TweenService")
 local http_service = game:GetService("HttpService")
 local coregui = game:GetService("CoreGui")
+local run_service = game:GetService("RunService")
 
 local player = players.LocalPlayer
 
@@ -61,7 +53,7 @@ function library:unload()
     getgenv().library = nil
 end
 
--- asset manager
+-- asset manager with question.png fallback
 function library:get_icon(name)
     if not isfolder(self.directory) then makefolder(self.directory) end
     local icon_folder = self.directory .. "/icons"
@@ -78,9 +70,23 @@ function library:get_icon(name)
         return game:HttpGet(url)
     end)
 
-    if success and data then
+    -- simple check to ensure we got an image and not a 404 page
+    if success and data and #data > 100 then
         writefile(path, data)
         return getcustomasset(path)
+    end
+
+    -- fallback to question.png
+    local q_path = icon_folder .. "/question.png"
+    if isfile(q_path) then
+        return getcustomasset(q_path)
+    end
+    
+    local q_url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/question.png"
+    local q_success, q_data = pcall(function() return game:HttpGet(q_url) end)
+    if q_success and q_data and #q_data > 100 then
+        writefile(q_path, q_data)
+        return getcustomasset(q_path)
     end
 
     return "rbxasset://textures/ui/GuiImagePlaceholder.png"
@@ -126,17 +132,19 @@ function library:window(props)
     local topbar = self:create("Frame", {
         Name = "topbar",
         Parent = main_frame,
-        Size = UDim2.new(1, 0, 0, 32),
+        Size = UDim2.new(1, 0, 0, 40), -- increased height for 24x24 icons
         BackgroundColor3 = self.themes.preset.sidebar,
         BorderSizePixel = 0
     })
+    -- added corner to topbar so it doesn't clip
+    self:create("UICorner", { Parent = topbar, CornerRadius = UDim.new(0, 6) })
 
     local title_label = self:create("TextLabel", {
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
         Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(1, -100, 1, 0),
+        Size = UDim2.new(1, -150, 1, 0),
         Font = Enum.Font.GothamBold,
         Text = cfg.title,
         TextColor3 = self.themes.preset.text,
@@ -144,17 +152,17 @@ function library:window(props)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    local tab_container = self:create("Frame", {
-        Name = "tabs",
+    local content = self:create("Frame", {
+        Name = "content",
         Parent = main_frame,
-        Position = UDim2.new(0, 8, 0, 40),
-        Size = UDim2.new(1, -16, 1, -48),
+        Position = UDim2.new(0, 8, 0, 48), -- shifted down to account for 40px topbar
+        Size = UDim2.new(1, -16, 1, -56),
         BackgroundTransparency = 1
     })
 
     local sidebar = self:create("Frame", {
         Name = "sidebar",
-        Parent = tab_container,
+        Parent = content,
         Size = UDim2.new(0, 140, 1, 0),
         BackgroundColor3 = self.themes.preset.sidebar,
         BorderSizePixel = 0
@@ -168,30 +176,30 @@ function library:window(props)
     })
     self:create("UIPadding", { Parent = sidebar, PaddingTop = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) })
 
-    local content_area = self:create("Frame", {
-        Name = "content",
-        Parent = tab_container,
+    local tab_content = self:create("Frame", {
+        Name = "tab_content",
+        Parent = content,
         Position = UDim2.new(0, 148, 0, 0),
         Size = UDim2.new(1, -148, 1, 0),
         BackgroundTransparency = 1
     })
 
-    -- topbar buttons
+    -- topbar buttons (now 24x24)
     local function make_topbar_button(name, icon, pos_x)
         local btn = self:create("ImageButton", {
             Name = name,
             Parent = topbar,
             BackgroundTransparency = 1,
-            Position = UDim2.new(1, pos_x, 0, 8),
-            Size = UDim2.new(0, 16, 0, 16),
+            Position = UDim2.new(1, pos_x, 0, 8), -- (40-24)/2 = 8
+            Size = UDim2.new(0, 24, 0, 24),
             Image = self:get_icon(icon)
         })
         return btn
     end
 
     local close_btn = make_topbar_button("close", "x.png", -32)
-    local minimize_btn = make_topbar_button("minimize", "minimize.png", -56)
-    local settings_btn = make_topbar_button("settings", "settings.png", -80)
+    local minimize_btn = make_topbar_button("minimize", "minimize.png", -64)
+    local settings_btn = make_topbar_button("settings", "settings.png", -96)
 
     -- dragging logic (mobile & pc)
     local dragging, drag_input, drag_start, start_pos
@@ -224,14 +232,20 @@ function library:window(props)
     local minimized = false
     self:connection(minimize_btn.MouseButton1Click, function()
         minimized = not minimized
+        -- only shrink y axis
+        local target_size = minimized and UDim2.new(cfg.size.X.Scale, cfg.size.X.Offset, 0, 40) or cfg.size
+        -- toggle icon
+        minimize_btn.Image = minimized and self:get_icon("expand.png") or self:get_icon("minimize.png")
+        
         tween_service:Create(main_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), {
-            Size = minimized and UDim2.new(0, 600, 0, 32) or cfg.size
+            Size = target_size
         }):Play()
     end)
 
     -- auto create settings tab
     cfg.settings_tab = self:tab({ name = "settings", icon = "settings.png" })
     cfg.settings_tab.frame.Visible = false
+    cfg.settings_tab.frame.Parent = tab_content -- ensure parentage
 
     self:connection(settings_btn.MouseButton1Click, function()
         if self.current_tab then
@@ -356,7 +370,7 @@ function library:tab(props)
 
     local frame = self:create("ScrollingFrame", {
         Name = cfg.name .. "_page",
-        Parent = self.gui.main.content,
+        Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
         BorderSizePixel = 0,
