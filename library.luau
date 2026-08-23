@@ -28,6 +28,8 @@ local library = {
     config_flags = {},
     instances = {},
     connections = {},
+    accent_elements = {},
+    active_notifs = {},
     current_tab = nil,
     directory = "Femboy-Ware",
     themes = {
@@ -50,9 +52,21 @@ function library:create(class, props)
     local inst = Instance.new(class)
     for prop, val in next, props do
         inst[prop] = val
+        if val == self.themes.preset.accent then
+            table.insert(self.accent_elements, {inst = inst, prop = prop})
+        end
     end
     table.insert(self.instances, inst)
     return inst
+end
+
+function library:change_accent(color)
+    self.themes.preset.accent = color
+    for _, data in ipairs(self.accent_elements) do
+        if data.inst and data.inst.Parent then
+            tween_service:Create(data.inst, TweenInfo.new(0.3), {[data.prop] = color}):Play()
+        end
+    end
 end
 
 function library:connection(signal, callback)
@@ -123,13 +137,39 @@ function library:get_icon(icon)
     return "rbxasset://textures/ui/GuiImagePlaceholder.png"
 end
 
+local function parse_markdown(md)
+    local html = ""
+    local in_code = false
+    for _, line in ipairs(string.split(md, "\n")) do
+        if line:match("^```") then
+            in_code = not in_code
+            html = html .. "<br/>"
+        elseif not in_code then
+            if line:match("^### ") then
+                html = html .. '<font size="14"><b>' .. line:sub(5) .. '</b></font><br/>'
+            elseif line:match("^## ") then
+                html = html .. '<font size="16"><b>' .. line:sub(4) .. '</b></font><br/>'
+            elseif line:match("^# ") then
+                html = html .. '<font size="18"><b>' .. line:sub(3) .. '</b></font><br/>'
+            elseif line:match("^[%-%*] ") then
+                html = html .. '• ' .. line:sub(3) .. '<br/>'
+            else
+                html = html .. line .. '<br/>'
+            end
+        else
+            html = html .. '<font color="#8c8c8c">' .. line .. '</font><br/>'
+        end
+    end
+    return html
+end
+
 function library:loading_screen(props)
     local cfg = {
         text = props.text or "loading...",
         duration = props.duration or 2,
         icon = props.icon or "loader",
         size = props.size or UDim2.new(0, 650, 0, 450),
-        position = props.position or UDim2.new(0.5, -325, 0.5, -225)
+        position = props.position or UDim2.new(0.5, 0, 0.5, 0)
     }
 
     if self.gui and self.gui:FindFirstChild("main") then
@@ -146,6 +186,7 @@ function library:loading_screen(props)
     local screen = self:create("Frame", {
         Name = "loader",
         Parent = loader_gui,
+        AnchorPoint = Vector2.new(0.5, 0.5),
         Position = cfg.position,
         Size = cfg.size,
         BackgroundColor3 = Color3.fromRGB(15, 15, 15),
@@ -199,12 +240,12 @@ function library:loading_screen(props)
             self.gui.main.Visible = true
         end
         
-        tween_service:Create(screen, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+        tween_service:Create(screen, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0),
             BackgroundTransparency = 1
         }):Play()
         
-        task.delay(1, function() if loader_gui then loader_gui:Destroy() end end)
+        task.delay(0.8, function() if loader_gui then loader_gui:Destroy() end end)
     end)
 end
 
@@ -463,7 +504,7 @@ function library:window(props)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported and "supported" or "unsupported")
     
-    library.button(info_section, {
+    info_section:button({
         name = "join discord",
         callback = function()
             setclipboard(cfg.discord_link)
@@ -475,7 +516,7 @@ function library:window(props)
     local changelog_text = "failed to load changelog."
     local success, data = pcall(function() return game:HttpGet(cfg.changelog_url) end)
     if success and data and string.sub(data, 1, 1) ~= "<" and #data > 10 then
-        changelog_text = data
+        changelog_text = parse_markdown(data)
     end
 
     local cl_frame = self:create("Frame", {
@@ -525,10 +566,38 @@ function library:window(props)
 
     self:connection(settings_btn.MouseButton1Click, function() cfg.settings_tab:select() end)
 
+    local ui_section = cfg.settings_tab:section({ name = "ui" })
+    ui_section:dropdown({
+        name = "accent color",
+        options = {"pink", "red", "blue", "green", "purple"},
+        default = "pink",
+        flag = "accent_color",
+        callback = function(val)
+            local colors = {
+                ["pink"] = Color3.fromRGB(255, 105, 180),
+                ["red"] = Color3.fromRGB(255, 50, 50),
+                ["blue"] = Color3.fromRGB(50, 150, 255),
+                ["green"] = Color3.fromRGB(50, 255, 100),
+                ["purple"] = Color3.fromRGB(150, 50, 255)
+            }
+            if colors[val] then
+                self:change_accent(colors[val])
+            end
+        end
+    })
+    ui_section:keybind({
+        name = "menu toggle",
+        default = Enum.KeyCode.RightShift,
+        flag = "menu_toggle",
+        callback = function()
+            main_frame.Visible = not main_frame.Visible
+        end
+    })
+
     local config_section = cfg.settings_tab:section({ name = "configs" })
     local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
 
-    library.button(config_section, { 
+    config_section:button({ 
         name = "save config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -542,7 +611,7 @@ function library:window(props)
         end 
     })
 
-    library.button(config_section, { 
+    config_section:button({ 
         name = "load config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -660,16 +729,21 @@ function library:tab(props)
             BackgroundColor3 = self.themes.preset.dropdown,
             Text = "",
             PlaceholderText = "search...",
+            PlaceholderColor3 = self.themes.preset.placeholder,
             Font = Enum.Font.Gotham,
-            TextSize = 12,
+            TextSize = 13,
+            TextColor3 = self.themes.preset.text,
             BorderSizePixel = 0,
-            ClearTextOnFocus = false
+            ClearTextOnFocus = false,
+            TextXAlignment = Enum.TextXAlignment.Left,
+            TextYAlignment = Enum.TextYAlignment.Center
         })
         self:create("UICorner", { Parent = search_box, CornerRadius = UDim.new(0, 4) })
         self:create("UIPadding", { Parent = search_box, PaddingLeft = UDim.new(0, 30) })
         local search_icon = self:create("ImageLabel", {
             Parent = search_box,
-            Position = UDim2.new(0, 8, 0, 8),
+            AnchorPoint = Vector2.new(0, 0.5),
+            Position = UDim2.new(0, 8, 0.5, 0),
             Size = UDim2.new(0, 16, 0, 16),
             BackgroundTransparency = 1,
             Image = self:get_icon("search")
@@ -845,6 +919,15 @@ function library:section(props)
     cfg.holder = elements_holder
     cfg.frame = section_frame
 
+    self:connection(elements_layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+        local target_height = elements_layout.AbsoluteContentSize.Y
+        local target_frame_size = target_height + 32
+        if cfg.expanded then
+            elements_holder.Size = UDim2.new(1, 0, 0, target_height)
+            section_frame.Size = UDim2.new(1, 0, 0, target_frame_size)
+        end
+    end)
+
     self:connection(header.MouseButton1Click, function()
         cfg.expanded = not cfg.expanded
         
@@ -893,12 +976,6 @@ function library:section(props)
             TextYAlignment = Enum.TextYAlignment.Center
         })
     end
-
-    task.defer(function()
-        local target_height = elements_layout.AbsoluteContentSize.Y
-        section_frame.Size = UDim2.new(1, 0, 0, target_height + 32)
-        elements_holder.Size = UDim2.new(1, 0, 0, target_height)
-    end)
 
     if self.sections then table.insert(self.sections, cfg) end
 
@@ -1015,7 +1092,8 @@ function library:keybind(props)
         default = props.default or Enum.KeyCode.Unknown,
         flag = props.flag or props.name or "keybind_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
-        binding = false
+        binding = false,
+        conn = nil
     }
 
     local bind_frame = self:create("TextButton", {
@@ -1061,11 +1139,17 @@ function library:keybind(props)
         TextSize = 12
     })
 
-    function cfg.set(key)
+    local function bind_input(key)
         cfg.key = key
         library.flags[cfg.flag] = key
         bind_text.Text = key.Name
-        cfg.callback(key)
+        if cfg.conn then cfg.conn:Disconnect() end
+        cfg.conn = uis.InputBegan:Connect(function(input, gpe)
+            if gpe then return end
+            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == key then
+                cfg.callback()
+            end
+        end)
     end
 
     self:connection(bind_btn.MouseButton1Click, function()
@@ -1074,15 +1158,21 @@ function library:keybind(props)
         local conn
         conn = uis.InputBegan:Connect(function(input)
             if cfg.binding then
-                if input.UserInputType == Enum.UserInputType.Keyboard then cfg.set(input.KeyCode) end
+                if input.UserInputType == Enum.UserInputType.Keyboard then 
+                    bind_input(input.KeyCode)
+                end
                 cfg.binding = false
                 conn:Disconnect()
             end
         end)
     end)
 
-    cfg.set(cfg.default)
-    library.config_flags[cfg.flag] = cfg.set
+    bind_input(cfg.default)
+    library.config_flags[cfg.flag] = function(val)
+        if type(val) == "EnumItem" then
+            bind_input(val)
+        end
+    end
     if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
@@ -1097,8 +1187,8 @@ function library:dropdown(props)
         open = false
     }
 
-    local dd_frame = self:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1 })
-    self:create("TextLabel", {
+    local dd_frame = library:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1 })
+    library:create("TextLabel", {
         Name = "name",
         Parent = dd_frame,
         BackgroundTransparency = 1,
@@ -1110,7 +1200,7 @@ function library:dropdown(props)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    local dd_btn = self:create("TextButton", {
+    local dd_btn = library:create("TextButton", {
         Name = "select",
         Parent = dd_frame,
         Position = UDim2.new(0, 0, 0, 18),
@@ -1120,9 +1210,9 @@ function library:dropdown(props)
         BorderSizePixel = 0,
         AutoButtonColor = false
     })
-    self:create("UICorner", { Parent = dd_btn, CornerRadius = UDim.new(0, 4) })
+    library:create("UICorner", { Parent = dd_btn, CornerRadius = UDim.new(0, 4) })
 
-    local dd_text = self:create("TextLabel", {
+    local dd_text = library:create("TextLabel", {
         Name = "val",
         Parent = dd_btn,
         BackgroundTransparency = 1,
@@ -1135,7 +1225,7 @@ function library:dropdown(props)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    local dd_icon = self:create("ImageLabel", {
+    local dd_icon = library:create("ImageLabel", {
         Name = "icon",
         Parent = dd_btn,
         BackgroundTransparency = 1,
@@ -1144,7 +1234,7 @@ function library:dropdown(props)
         Image = self:get_icon("down")
     })
 
-    local dd_list = self:create("Frame", {
+    local dd_list = library:create("Frame", {
         Name = "list",
         Parent = dd_frame,
         Position = UDim2.new(0, 0, 0, 44),
@@ -1154,9 +1244,9 @@ function library:dropdown(props)
         Visible = false,
         ClipsDescendants = true
     })
-    self:create("UICorner", { Parent = dd_list, CornerRadius = UDim.new(0, 4) })
-    local dd_layout = self:create("UIListLayout", { Parent = dd_list, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
-    self:create("UIPadding", { Parent = dd_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
+    library:create("UICorner", { Parent = dd_list, CornerRadius = UDim.new(0, 4) })
+    local dd_layout = library:create("UIListLayout", { Parent = dd_list, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
+    library:create("UIPadding", { Parent = dd_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
 
     function cfg.set(val)
         cfg.value = val
@@ -1171,7 +1261,7 @@ function library:dropdown(props)
             if child:IsA("TextButton") then child:Destroy() end
         end
         for _, opt in next, opts do
-            local opt_btn = self:create("TextButton", {
+            local opt_btn = library:create("TextButton", {
                 Name = opt,
                 Parent = dd_list,
                 Size = UDim2.new(1, 0, 0, 20),
@@ -1179,7 +1269,7 @@ function library:dropdown(props)
                 Text = "",
                 AutoButtonColor = false
             })
-            self:create("TextLabel", {
+            library:create("TextLabel", {
                 Name = "val",
                 Parent = opt_btn,
                 BackgroundTransparency = 1,
@@ -1244,7 +1334,9 @@ function library:textbox(props)
         TextColor3 = self.themes.preset.text,
         TextSize = 12,
         ClearTextOnFocus = cfg.clear_on_focus,
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center
     })
     self:create("UICorner", { Parent = tb_frame, CornerRadius = UDim.new(0, 4) })
     self:create("UIPadding", { Parent = tb_frame, PaddingLeft = UDim.new(0, 8) })
@@ -1330,6 +1422,15 @@ function library:slider(props)
 
     function cfg.set(val)
         val = math.clamp(val, cfg.min, cfg.max)
+        local range = cfg.max - cfg.min
+        if range <= 1 then
+            val = math.floor(val * 100) / 100
+        elseif range <= 10 then
+            val = math.floor(val * 10) / 10
+        else
+            val = math.floor(val)
+        end
+        
         cfg.value = val
         library.flags[cfg.flag] = val
         val_label.Text = tostring(val)
@@ -1389,15 +1490,27 @@ function library:notification(props)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    tween_service:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-        Position = UDim2.new(1, -210, 1, -50)
-    }):Play()
+    table.insert(self.active_notifs, notif)
+
+    local function update_positions()
+        for i, n in ipairs(library.active_notifs) do
+            local target_pos = UDim2.new(1, -210, 1, -50 - ((i-1) * 50))
+            tween_service:Create(n, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = target_pos }):Play()
+        end
+    end
+    update_positions()
 
     task.delay(cfg.duration, function()
         tween_service:Create(notif, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
-            Position = UDim2.new(1, 0, 1, -50)
+            Position = UDim2.new(1, 0, 1, notif.Position.Y.Offset)
         }):Play()
-        task.delay(0.5, function() if notif then notif:Destroy() end end)
+        task.delay(0.5, function() 
+            if notif then 
+                notif:Destroy() 
+                table.remove(library.active_notifs, table.find(library.active_notifs, notif))
+                update_positions()
+            end 
+        end)
     end)
 end
 
