@@ -1,14 +1,3 @@
--- executor function fallbacks (prevents "attempt to call a nil value")
-local gethui = gethui or function() return game:GetService("CoreGui") end
-local makefolder = makefolder or function() end
-local isfolder = isfolder or function() return false end
-local isfile = isfile or function() return false end
-local writefile = writefile or function() end
-local readfile = readfile or function() return nil end
-local listfiles = listfiles or function() return {} end
-local getcustomasset = getcustomasset or function() return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
-local getgenv = getgenv or function() return _G end
-
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
 local tween_service = game:GetService("TweenService")
@@ -89,12 +78,18 @@ function library:get_icon(icon)
         return getcustomasset(path)
     end
 
-    local url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/" .. file_name
-    local success, data = pcall(function() return game:HttpGet(url) end)
+    -- check both assets/icons/ and assets/ folders
+    local urls = {
+        "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/" .. file_name,
+        "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/" .. file_name
+    }
 
-    if success and data and #data > 100 then
-        writefile(path, data)
-        return getcustomasset(path)
+    for _, url in ipairs(urls) do
+        local success, data = pcall(function() return game:HttpGet(url) end)
+        if success and data and #data > 100 then
+            writefile(path, data)
+            return getcustomasset(path)
+        end
     end
 
     warn("the prebuilt icon named '"..icon.."' could not be found. please look at the github to see all icons")
@@ -104,11 +99,16 @@ function library:get_icon(icon)
         return getcustomasset(q_path)
     end
     
-    local q_url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/question.png"
-    local q_success, q_data = pcall(function() return game:HttpGet(q_url) end)
-    if q_success and q_data and #q_data > 100 then
-        writefile(q_path, q_data)
-        return getcustomasset(q_path)
+    local q_urls = {
+        "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/question.png",
+        "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/question.png"
+    }
+    for _, q_url in ipairs(q_urls) do
+        local q_success, q_data = pcall(function() return game:HttpGet(q_url) end)
+        if q_success and q_data and #q_data > 100 then
+            writefile(q_path, q_data)
+            return getcustomasset(q_path)
+        end
     end
 
     return "rbxasset://textures/ui/GuiImagePlaceholder.png"
@@ -131,10 +131,14 @@ function library:loading_screen(props)
     local screen = self:create("Frame", {
         Name = "loader",
         Parent = loader_gui,
-        Size = UDim2.new(1, 0, 1, 0),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Size = UDim2.new(0, 600, 0, 400),
         BackgroundColor3 = Color3.fromRGB(15, 15, 15),
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ClipsDescendants = true
     })
+    self:create("UICorner", { Parent = screen, CornerRadius = UDim.new(0, 6) })
 
     local logo = self:create("ImageLabel", {
         Name = "logo",
@@ -150,6 +154,7 @@ function library:loading_screen(props)
         Name = "text",
         Parent = screen,
         BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 40),
         Size = UDim2.new(0, 200, 0, 20),
         Font = Enum.Font.GothamBold,
@@ -158,17 +163,29 @@ function library:loading_screen(props)
         TextSize = 14
     })
 
+    local spin_info = TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    local spin_tween = tween_service:Create(logo, spin_info, { Rotation = 360 })
+    spin_tween:Play()
+    
     local spin_conn
-    spin_conn = run_service.RenderStepped:Connect(function()
-        local speed = math.abs(math.sin(tick() * 2)) * 8 + 1
-        logo.Rotation = logo.Rotation + speed
+    spin_conn = spin_tween.Completed:Connect(function()
+        if logo and logo.Parent then
+            logo.Rotation = 0
+            spin_tween:Play()
+        else
+            if spin_conn then spin_conn:Disconnect() end
+        end
     end)
 
     task.delay(cfg.duration, function()
         if spin_conn then spin_conn:Disconnect() end
-        tween_service:Create(screen, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
-        tween_service:Create(logo, TweenInfo.new(0.5), { ImageTransparency = 1 }):Play()
-        tween_service:Create(text_label, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
+        if spin_tween then spin_tween:Pause() end
+        
+        tween_service:Create(screen, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0),
+            BackgroundTransparency = 1
+        }):Play()
+        
         task.delay(0.5, function() if loader_gui then loader_gui:Destroy() end end)
     end)
 end
@@ -275,6 +292,8 @@ function library:window(props)
         Name = "avatar",
         Parent = player_frame,
         BackgroundTransparency = 1,
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 0, 0.5, 0),
         Size = UDim2.new(0, 32, 0, 32),
         Image = "https://www.roblox.com/headshot-thumbnail/image?userId="..player.UserId.."&width=150&height=150&format=png"
     })
@@ -384,14 +403,20 @@ function library:window(props)
         panel_btn.Image = self:get_icon(target_icon)
         
         for _, tab in next, self.tabs do
-            if tab.text_label then tab.text_label.Visible = not panel_collapsed end
+            if tab.text_label then
+                tab.text_label.Visible = not panel_collapsed
+            end
+            if tab.icon_label then
+                local target_pos = panel_collapsed and UDim2.new(0.5, -8, 0, 8) or UDim2.new(0, 8, 0, 8)
+                tween_service:Create(tab.icon_label, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = target_pos }):Play()
+            end
         end
         pname_label.Visible = not panel_collapsed
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, TweenInfo.new(0.3), { Position = UDim2.new(0.5, -16, 0, 0) }):Play()
+            tween_service:Create(avatar_img, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = UDim2.new(0.5, -16, 0.5, 0) }):Play()
         else
-            tween_service:Create(avatar_img, TweenInfo.new(0.3), { Position = UDim2.new(0, 0, 0, 0) }):Play()
+            tween_service:Create(avatar_img, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
     end)
 
@@ -543,6 +568,8 @@ function library:tab(props)
     cfg.button = button
     cfg.frame = frame
     cfg.text_label = text_label
+    cfg.icon_label = icon_label
+    cfg.accent_bar = accent_bar
     cfg.order = order
 
     table.insert(self.tabs, cfg)
@@ -558,8 +585,8 @@ function library:tab(props)
 
         if old_tab then
             old_tab.button.BackgroundTransparency = 1
-            old_tab.button.accent.Visible = false
-            old_tab.button.text.TextColor3 = library.themes.preset.placeholder
+            old_tab.accent_bar.Visible = false
+            old_tab.text_label.TextColor3 = library.themes.preset.placeholder
             
             old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
             tween_service:Create(old_tab.frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
@@ -593,7 +620,7 @@ function library:section(props)
 
     local section_frame = self:create("Frame", {
         Name = cfg.name,
-        Parent = self.current_tab.frame,
+        Parent = self.frame,
         Size = UDim2.new(1, 0, 0, 0),
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundColor3 = self.themes.preset.element_background,
@@ -959,7 +986,8 @@ function library:dropdown(props)
     self:create("UIPadding", { Parent = dd_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
 
     local function set_height()
-        local count = #cfg.options
+        local count = 0
+        for _ in next, cfg.options do count += 1 end
         dd_list.Size = UDim2.new(1, 0, 0, math.clamp(count * 24 + 8, 0, 120))
     end
 
