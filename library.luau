@@ -36,7 +36,7 @@ local library = {
     active_notifs = {},
     current_tab = nil,
     directory = "Femboy-Ware",
-    smooth_drag = false,
+    drag_speed = 0.08,
     themes = {
         preset = {
             background = Color3.fromRGB(30, 30, 30),
@@ -483,8 +483,8 @@ function library:window(props)
             if dragging then
                 local delta = input.Position - drag_start
                 local target_pos = UDim2.new(start_pos.X.Scale, start_pos.X.Offset + delta.X, start_pos.Y.Scale, start_pos.Y.Offset + delta.Y)
-                if library.smooth_drag then
-                    tween_service:Create(main_frame, TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_pos}):Play()
+                if library.drag_speed > 0 then
+                    tween_service:Create(main_frame, TweenInfo.new(library.drag_speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_pos}):Play()
                 else
                     main_frame.Position = target_pos
                 end
@@ -521,14 +521,14 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0.5, -8, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0.5, -16, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -612,7 +612,7 @@ function library:window(props)
         Size = UDim2.new(1, -8, 1, -8),
         ScrollBarThickness = 4,
         ScrollBarImageColor3 = self.themes.preset.accent,
-        CanvasSize = UDim2.new(0, 0, 0,0),
+        CanvasSize = UDim2.new(0, 0, 0, 0),
         AutomaticCanvasSize = Enum.AutomaticSize.Y,
         BorderSizePixel = 0
     })
@@ -667,12 +667,12 @@ function library:window(props)
             self:change_accent(color)
         end
     })
-    ui_section:toggle({
-        name = "smooth dragging",
-        default = false,
-        flag = "smooth_drag",
+    ui_section:slider({
+        name = "drag speed",
+        min = 0, max = 0.3, default = 0.08,
+        flag = "drag_speed",
         callback = function(val)
-            library.smooth_drag = val
+            library.drag_speed = val
         end
     })
     ui_section:keybind({
@@ -749,8 +749,8 @@ function library:window(props)
         end
     })
 
-    local auto_exec_section = cfg.settings_tab:section({ name = "auto execute" })
-    auto_exec_section:toggle({
+    local other_section = cfg.settings_tab:section({ name = "other" })
+    other_section:toggle({
         name = "auto execute on teleport",
         default = false,
         flag = "auto_exec",
@@ -863,7 +863,7 @@ function library:tab(props)
         BackgroundTransparency = 1,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0),
-        ZIndex = 2
+        ZIndex = 1
     })
 
     local list_frame
@@ -975,9 +975,9 @@ function library:tab(props)
             old_tab.text_label.TextColor3 = library.themes.preset.placeholder
             
             old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
-            old_tab.frame.ZIndex = 3
-            tween_service:Create(old_tab.frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
-            task.delay(0.4, function()
+            old_tab.frame.ZIndex = 1
+            tween_service:Create(old_tab.frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
+            task.delay(0.35, function()
                 old_tab.frame.Visible = false
                 old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
             end)
@@ -989,9 +989,9 @@ function library:tab(props)
         text_label.TextColor3 = library.themes.preset.text
         
         frame.Visible = true
-        frame.ZIndex = 4
+        frame.ZIndex = 2
         frame.Position = UDim2.new(direction, 0, 0, 0)
-        tween_service:Create(frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
+        tween_service:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
     end
 
     self:connection(button.MouseButton1Click, function() cfg:select() end)
@@ -1616,7 +1616,7 @@ function library:slider(props)
         Name = "knob",
         Parent = track,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Position = UDim2.new(0, 7, 0.5, 0),
         Size = UDim2.new(0, 14, 0, 14),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0
@@ -1641,11 +1641,11 @@ function library:slider(props)
         
         local target_fill_size = UDim2.new(percent, 0, 1, 0)
         local usable_width = track.AbsoluteSize.X - knob.AbsoluteSize.X
-        local knob_x = (knob.AbsoluteSize.X / 2) + percent * usable_width
-        local target_knob_pos = UDim2.new(0, knob_x, 0.5, 0)
+        local target_x = (percent * usable_width) + (knob.AbsoluteSize.X / 2)
+        local target_knob_pos = UDim2.new(0, target_x, 0.5, 0)
         
-        tween_service:Create(fill, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = target_fill_size}):Play()
-        tween_service:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_knob_pos}):Play()
+        tween_service:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = target_fill_size}):Play()
+        tween_service:Create(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_knob_pos}):Play()
         
         if type(cfg.callback) == "function" then cfg.callback(val) end
     end
@@ -1709,12 +1709,13 @@ function library:colorpicker(props)
         Name = "popup",
         Parent = self.gui,
         Visible = false,
-        Size = UDim2.new(0, 230, 0, 160),
+        Size = UDim2.new(0, 220, 0, 220),
         BackgroundColor3 = self.themes.preset.element_background,
         BorderSizePixel = 0,
-        ZIndex = 10
+        ZIndex = 100
     })
-    self:create("UICorner", { Parent = popup, CornerRadius = UDim.new(0, 4) })
+    self:create("UICorner", { Parent = popup, CornerRadius = UDim.new(0, 6) })
+    self:create("UIStroke", { Parent = popup, Color = self.themes.preset.stroke, Thickness = 1, ZIndex = 100 })
     self:create("UIPadding", { Parent = popup, PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 10), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10) })
 
     local h, s, v = Color3.toHSV(cfg.default)
@@ -1722,10 +1723,10 @@ function library:colorpicker(props)
 
     local sv_box = self:create("TextButton", {
         Parent = popup,
-        Size = UDim2.new(0, 180, 0, 140),
+        Size = UDim2.new(0, 200, 0, 150),
         Text = "",
         BorderSizePixel = 0,
-        ZIndex = 11,
+        ZIndex = 101,
         BackgroundColor3 = Color3.fromHSV(h, 1, 1)
     })
     self:create("UICorner", { Parent = sv_box, CornerRadius = UDim.new(0, 4) })
@@ -1733,7 +1734,8 @@ function library:colorpicker(props)
         Parent = sv_box,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Color3.new(1, 1, 1),
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ZIndex = 102
     })
     self:create("UIGradient", {
         Parent = white_frame,
@@ -1743,7 +1745,8 @@ function library:colorpicker(props)
         Parent = white_frame,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Color3.new(0, 0, 0),
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ZIndex = 102
     })
     self:create("UIGradient", {
         Parent = black_frame,
@@ -1751,13 +1754,24 @@ function library:colorpicker(props)
         Rotation = 90
     })
 
+    local sv_cursor = self:create("Frame", {
+        Parent = sv_box,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 8, 0, 8),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 0,
+        ZIndex = 103
+    })
+    self:create("UICorner", { Parent = sv_cursor, CornerRadius = UDim.new(1, 0) })
+    self:create("UIStroke", { Parent = sv_cursor, Color = Color3.fromRGB(0, 0, 0), Thickness = 1, ZIndex = 103 })
+
     local hue_bar = self:create("TextButton", {
         Parent = popup,
-        Position = UDim2.new(0, 195, 0, 0),
-        Size = UDim2.new(0, 15, 0, 140),
+        Position = UDim2.new(0, 0, 0, 160),
+        Size = UDim2.new(0, 200, 0, 12),
         Text = "",
         BorderSizePixel = 0,
-        ZIndex = 11
+        ZIndex = 101
     })
     self:create("UICorner", { Parent = hue_bar, CornerRadius = UDim.new(1, 0) })
     self:create("UIGradient", {
@@ -1773,11 +1787,42 @@ function library:colorpicker(props)
         })
     })
 
+    local hue_cursor = self:create("Frame", {
+        Parent = hue_bar,
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Size = UDim2.new(0, 6, 0, 16),
+        BackgroundColor3 = Color3.fromRGB(255, 255, 255),
+        BorderSizePixel = 0,
+        ZIndex = 102
+    })
+    self:create("UICorner", { Parent = hue_cursor, CornerRadius = UDim.new(1, 0) })
+    self:create("UIStroke", { Parent = hue_cursor, Color = Color3.fromRGB(0, 0, 0), Thickness = 1, ZIndex = 102 })
+
+    local hex_box = self:create("TextBox", {
+        Parent = popup,
+        Position = UDim2.new(0, 0, 0, 180),
+        Size = UDim2.new(0, 200, 0, 20),
+        BackgroundColor3 = self.themes.preset.dropdown,
+        Text = "#FFFFFF",
+        Font = Enum.Font.Gotham,
+        TextColor3 = self.themes.preset.text,
+        TextSize = 12,
+        BorderSizePixel = 0,
+        ZIndex = 101
+    })
+    self:create("UICorner", { Parent = hex_box, CornerRadius = UDim.new(0, 4) })
+
     local function update_color()
         local color = Color3.fromHSV(h, s, v)
         cp_btn.BackgroundColor3 = color
         sv_box.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
-        library.flags[cfg.flag] = {R=math.floor(color.R*255), G=math.floor(color.G*255), B=math.floor(color.B*255)}
+        sv_cursor.Position = UDim2.new(s, 0, 1-v, 0)
+        hue_cursor.Position = UDim2.new(h, 0, 0.5, 0)
+        local r = math.floor(color.R * 255)
+        local g = math.floor(color.G * 255)
+        local b = math.floor(color.B * 255)
+        hex_box.Text = string.format("#%02X%02X%02X", r, g, b)
+        library.flags[cfg.flag] = {R=r, G=g, B=b}
         if type(cfg.callback) == "function" then cfg.callback(color) end
     end
 
@@ -1799,18 +1844,31 @@ function library:colorpicker(props)
             v = 1 - rel_y
             update_color()
         elseif dragging_hue then
-            local rel_y = math.clamp((input.Position.Y - hue_bar.AbsolutePosition.Y) / hue_bar.AbsoluteSize.Y, 0, 1)
-            h = 1 - rel_y
+            local rel_x = math.clamp((input.Position.X - hue_bar.AbsolutePosition.X) / hue_bar.AbsoluteSize.X, 0, 1)
+            h = rel_x
             update_color()
         end
     end)
 
     self:connection(hue_bar.MouseButton1Down, function() dragging_hue = true end)
 
+    self:connection(hex_box.FocusLost, function()
+        local text = hex_box.Text
+        if string.sub(text, 1, 1) ~= "#" then text = "#" .. text end
+        local success, color = pcall(function()
+            return Color3.fromHex(text)
+        end)
+        if success and color then
+            cfg.set(color)
+        else
+            update_color()
+        end
+    end)
+
     self:connection(cp_btn.MouseButton1Click, function()
         popup.Visible = not popup.Visible
         if popup.Visible then
-            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 190, 0, cp_btn.AbsolutePosition.Y - 150)
+            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 180, 0, cp_btn.AbsolutePosition.Y - 180)
         end
     end)
 
@@ -1839,31 +1897,43 @@ function library:notification(props)
         Name = "notif",
         Parent = self.gui,
         Position = UDim2.new(1, -300, 1, -50),
-        Size = UDim2.new(0, 200, 0, 40),
+        Size = UDim2.new(0, 220, 0, 50),
         BackgroundColor3 = self.themes.preset.element_background,
         BorderSizePixel = 0
     })
     self:create("UICorner", { Parent = notif, CornerRadius = UDim.new(0, 4) })
-    
+    self:create("UIStroke", { Parent = notif, Color = self.themes.preset.stroke, Thickness = 1, Transparency = 0.5 })
+
+    local accent_bar = self:create("Frame", {
+        Name = "accent_bar",
+        Parent = notif,
+        Size = UDim2.new(0, 3, 1, -10),
+        Position = UDim2.new(0, 5, 0, 5),
+        BackgroundColor3 = self.themes.preset.accent,
+        BorderSizePixel = 0
+    })
+    self:create("UICorner", { Parent = accent_bar, CornerRadius = UDim.new(1, 0) })
+
     self:create("TextLabel", {
         Name = "text",
         Parent = notif,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, -16, 1, 0),
-        Position = UDim2.new(0, 8, 0, 0),
+        Size = UDim2.new(1, -25, 1, 0),
+        Position = UDim2.new(0, 15, 0, 0),
         Font = Enum.Font.Gotham,
         Text = cfg.text,
         TextColor3 = self.themes.preset.text,
-        TextSize = 12,
+        TextSize = 13,
         TextWrapped = true,
-        TextXAlignment = Enum.TextXAlignment.Left
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Center
     })
 
     table.insert(self.active_notifs, notif)
 
     local function update_positions()
         for i, n in ipairs(library.active_notifs) do
-            local target_pos = UDim2.new(1, -210, 1, -50 - ((i-1) * 50))
+            local target_pos = UDim2.new(1, -240, 1, -60 - ((i-1) * 60))
             tween_service:Create(n, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Position = target_pos }):Play()
         end
     end
