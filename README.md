@@ -1,4 +1,5 @@
 # femboy-ware
-ui lib
+roblox ui library
 
-# tuzng tung tung sahur
+## made ts because im bored
+look at example.luau for an example and docs.md for docs
