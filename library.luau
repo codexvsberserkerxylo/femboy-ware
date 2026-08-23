@@ -91,8 +91,6 @@ function library:get_icon(icon)
         end
     end
 
-    warn("the prebuilt icon named '"..icon.."' could not be found. please look at the github to see all icons")
-    
     local q_path = icon_folder .. "/question.png"
     if isfile(q_path) then
         return getcustomasset(q_path)
@@ -118,8 +116,13 @@ function library:loading_screen(props)
         text = props.text or "loading...",
         duration = props.duration or 2,
         icon = props.icon or "loader",
-        size = props.size or UDim2.new(0, 650, 0, 450)
+        size = props.size or UDim2.new(0, 650, 0, 450),
+        position = props.position or UDim2.new(0.5, -325, 0.5, -225)
     }
+
+    if self.gui and self.gui:FindFirstChild("main") then
+        self.gui.main.Visible = false
+    end
 
     local loader_gui = self:create("ScreenGui", {
         Name = "femboy_loader",
@@ -131,8 +134,7 @@ function library:loading_screen(props)
     local screen = self:create("Frame", {
         Name = "loader",
         Parent = loader_gui,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Position = cfg.position,
         Size = cfg.size,
         BackgroundColor3 = Color3.fromRGB(15, 15, 15),
         BorderSizePixel = 0,
@@ -163,7 +165,6 @@ function library:loading_screen(props)
         TextSize = 14
     })
 
-    -- fast to slow rotation
     local spin_info = TweenInfo.new(1.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     local spin_tween = tween_service:Create(logo, spin_info, { Rotation = 360 })
     spin_tween:Play()
@@ -182,12 +183,16 @@ function library:loading_screen(props)
         if spin_conn then spin_conn:Disconnect() end
         if spin_tween then spin_tween:Pause() end
         
-        tween_service:Create(screen, TweenInfo.new(0.5, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+        if self.gui and self.gui:FindFirstChild("main") then
+            self.gui.main.Visible = true
+        end
+        
+        tween_service:Create(screen, TweenInfo.new(1, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0),
             BackgroundTransparency = 1
         }):Play()
         
-        task.delay(0.5, function() if loader_gui then loader_gui:Destroy() end end)
+        task.delay(1, function() if loader_gui then loader_gui:Destroy() end end)
     end)
 end
 
@@ -339,8 +344,8 @@ function library:window(props)
         Name = "minimize",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -68, 0, 9),
-        Size = UDim2.new(0, 21, 0, 21),
+        Position = UDim2.new(1, -62, 0, 10),
+        Size = UDim2.new(0, 20, 0, 20),
         Image = self:get_icon("minimize")
     })
 
@@ -348,8 +353,8 @@ function library:window(props)
         Name = "settings",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -101, 0, 9),
-        Size = UDim2.new(0, 21, 0, 21),
+        Position = UDim2.new(1, -90, 0, 10),
+        Size = UDim2.new(0, 20, 0, 20),
         Image = self:get_icon("settings")
     })
 
@@ -357,8 +362,8 @@ function library:window(props)
         Name = "panel",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(1, -134, 0, 9),
-        Size = UDim2.new(0, 21, 0, 21),
+        Position = UDim2.new(1, -118, 0, 10),
+        Size = UDim2.new(0, 20, 0, 20),
         Image = self:get_icon("panel-close")
     })
 
@@ -392,7 +397,7 @@ function library:window(props)
         local target_size = minimized and UDim2.new(cfg.size.X.Scale, cfg.size.X.Offset, 0, 40) or cfg.size
         minimize_btn.Image = minimized and self:get_icon("maximize") or self:get_icon("minimize")
         content.Visible = not minimized
-        tween_service:Create(main_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Size = target_size }):Play()
+        tween_service:Create(main_frame, TweenInfo.new(0.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Quart), { Size = target_size }):Play()
     end)
 
     local panel_collapsed = false
@@ -411,8 +416,7 @@ function library:window(props)
         for _, tab in next, self.tabs do
             if tab.text_label then tab.text_label.Visible = not panel_collapsed end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 8, 0.5, 0)
-                tab.icon_label.AnchorPoint = Vector2.new(0, 0.5)
+                local target_pos = panel_collapsed and UDim2.new(0, 13, 0.5, 0) or UDim2.new(0, 16, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
@@ -427,7 +431,6 @@ function library:window(props)
 
     self.tabs = {}
 
-    -- home tab setup
     local home_tab = self:tab({ name = "home", icon = "house", hidden_order = -1 })
     
     local info_section = home_tab:section({ name = "info" })
@@ -448,22 +451,15 @@ function library:window(props)
     info_section:button({
         name = "join discord",
         callback = function()
-            -- executor pcall to avoid sandbox errors
-            pcall(function()
-                if setclipboard then setclipboard(cfg.discord_link) end
-            end)
+            pcall(function() setclipboard(cfg.discord_link) end)
             self:notification({ text = "discord link copied to clipboard!" })
         end
     })
 
     local changelog_section = home_tab:section({ name = "changelog" })
     local changelog_text = "failed to load changelog."
-    local success, data = pcall(function()
-        return game:HttpGet(cfg.changelog_url)
-    end)
-    if success and data then
-        changelog_text = data
-    end
+    local success, data = pcall(function() return game:HttpGet(cfg.changelog_url) end)
+    if success and data then changelog_text = data end
 
     local cl_frame = self:create("Frame", {
         Name = "cl_frame",
@@ -521,7 +517,7 @@ function library:window(props)
             local name = config_name_input.instance.Text
             if name == "" then return end
             local config_data = {}
-            for flag, val in next, self.flags do config_data[flag] = val end
+            for flag, val in next, library.flags do config_data[flag] = val end
             local path = self.directory .. "/configs/" .. name .. ".json"
             writefile(path, http_service:JSONEncode(config_data))
             self:notification({ text = "saved config: " .. name })
@@ -538,7 +534,7 @@ function library:window(props)
             if isfile(path) then
                 local data = http_service:JSONDecode(readfile(path))
                 for flag, val in next, data do
-                    if self.config_flags[flag] then self.config_flags[flag](val) end
+                    if library.config_flags[flag] then library.config_flags[flag](val) end
                 end
                 self:notification({ text = "loaded config: " .. name })
             else
@@ -572,7 +568,9 @@ function library:tab(props)
     local cfg = {
         name = props.name or "tab",
         icon = props.icon or "down",
-        hidden = props.hidden or false
+        hidden = props.hidden or false,
+        search_enabled = props.search or false,
+        sections = {}
     }
 
     local order = props.hidden_order or self.tab_order
@@ -609,7 +607,7 @@ function library:tab(props)
         Parent = button,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 8, 0.5, 0),
+        Position = UDim2.new(0, 16, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
     })
@@ -627,21 +625,85 @@ function library:tab(props)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    local frame = self:create("ScrollingFrame", {
+    local frame = self:create("Frame", {
         Name = cfg.name .. "_page",
         Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
-        BorderSizePixel = 0,
-        ScrollBarThickness = 4,
-        ScrollBarImageColor3 = self.themes.preset.accent,
-        CanvasSize = UDim2.new(0, 0, 0, 0),
-        AutomaticCanvasSize = Enum.AutomaticSize.Y,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0)
     })
-    self:create("UIListLayout", { Parent = frame, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
-    self:create("UIPadding", { Parent = frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
+
+    local list_frame
+    if cfg.search_enabled then
+        local search_box = self:create("TextBox", {
+            Name = "search",
+            Parent = frame,
+            Size = UDim2.new(1, 0, 0, 32),
+            BackgroundColor3 = self.themes.preset.dropdown,
+            Text = "",
+            PlaceholderText = "search...",
+            Font = Enum.Font.Gotham,
+            TextSize = 12,
+            BorderSizePixel = 0,
+            ClearTextOnFocus = false
+        })
+        self:create("UICorner", { Parent = search_box, CornerRadius = UDim.new(0, 4) })
+        self:create("UIPadding", { Parent = search_box, PaddingLeft = UDim.new(0, 30) })
+        local search_icon = self:create("ImageLabel", {
+            Parent = search_box,
+            Position = UDim2.new(0, 8, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            BackgroundTransparency = 1,
+            Image = self:get_icon("search")
+        })
+        
+        list_frame = self:create("ScrollingFrame", {
+            Name = "list_frame",
+            Parent = frame,
+            Position = UDim2.new(0, 0, 0, 40),
+            Size = UDim2.new(1, 0, 1, -40),
+            BackgroundTransparency = 1,
+            ScrollBarThickness = 4,
+            ScrollBarImageColor3 = self.themes.preset.accent,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            BorderSizePixel = 0
+        })
+        self:create("UIListLayout", { Parent = list_frame, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
+        self:create("UIPadding", { Parent = list_frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
+
+        self:connection(search_box:GetPropertyChangedSignal("Text"), function()
+            local text = string.lower(search_box.Text)
+            for _, section in next, cfg.sections do
+                local matched = false
+                if string.find(string.lower(section.name), text) then matched = true end
+                if not matched then
+                    for _, element in next, section.elements do
+                        if element.name and string.find(string.lower(element.name), text) then
+                            matched = true
+                            break
+                        end
+                    end
+                end
+                section.frame.Visible = matched
+            end
+        end)
+    else
+        list_frame = self:create("ScrollingFrame", {
+            Name = "list_frame",
+            Parent = frame,
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            ScrollBarThickness = 4,
+            ScrollBarImageColor3 = self.themes.preset.accent,
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            AutomaticCanvasSize = Enum.AutomaticSize.Y,
+            BorderSizePixel = 0
+        })
+        self:create("UIListLayout", { Parent = list_frame, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
+        self:create("UIPadding", { Parent = list_frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
+    end
 
     cfg.button = button
     cfg.frame = frame
@@ -649,6 +711,7 @@ function library:tab(props)
     cfg.icon_label = icon_label
     cfg.accent_bar = accent_bar
     cfg.order = order
+    cfg.holder = list_frame
 
     table.insert(self.tabs, cfg)
 
@@ -693,12 +756,13 @@ function library:section(props)
     local cfg = {
         name = props.name or "section",
         icon = props.icon or nil,
-        expanded = true
+        expanded = true,
+        elements = {}
     }
 
     local section_frame = self:create("Frame", {
         Name = cfg.name,
-        Parent = self.frame,
+        Parent = self.holder,
         Size = UDim2.new(1, 0, 0, 32),
         BackgroundColor3 = self.themes.preset.element_background,
         BorderSizePixel = 0,
@@ -762,12 +826,12 @@ function library:section(props)
     self:create("UIPadding", { Parent = elements_holder, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
 
     cfg.holder = elements_holder
+    cfg.frame = section_frame
 
-    -- flawless dropdown logic
     self:connection(header.MouseButton1Click, function()
         cfg.expanded = not cfg.expanded
         
-        local target_height = cfg.expanded and elements_layout.AbsoluteContentSize.Y or 0
+        local target_height = cfg.expanded and (elements_layout.AbsoluteContentSize.Y) or 0
         local target_frame_size = target_height + 32
         local target_rot = cfg.expanded and 0 or 180
         
@@ -810,12 +874,13 @@ function library:section(props)
         })
     end
 
-    -- delay to let layout calculate
     task.defer(function()
         local target_height = elements_layout.AbsoluteContentSize.Y
         section_frame.Size = UDim2.new(1, 0, 0, target_height + 32)
         elements_holder.Size = UDim2.new(1, 0, 0, target_height)
     end)
+
+    if self.sections then table.insert(self.sections, cfg) end
 
     return setmetatable(cfg, { __index = self })
 end
@@ -824,7 +889,7 @@ function library:toggle(props)
     local cfg = {
         name = props.name or "toggle",
         default = props.default or false,
-        flag = props.flag or props.name or "toggle_flag",
+        flag = props.flag or props.name or "toggle_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end
     }
 
@@ -870,7 +935,7 @@ function library:toggle(props)
 
     function cfg.set(val)
         cfg.value = val
-        self.flags[cfg.flag] = val
+        library.flags[cfg.flag] = val
         local color = val and self.themes.preset.accent or self.themes.preset.dropdown
         local pos = val and UDim2.new(1, -14, 0, 2) or UDim2.new(0, 2, 0, 2)
         tween_service:Create(switch_bg, TweenInfo.new(0.2), { BackgroundColor3 = color }):Play()
@@ -880,7 +945,8 @@ function library:toggle(props)
 
     self:connection(toggle_frame.MouseButton1Click, function() cfg.set(not cfg.value) end)
     cfg.set(cfg.default)
-    self.config_flags[cfg.flag] = cfg.set
+    library.config_flags[cfg.flag] = cfg.set
+    if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
 
@@ -919,6 +985,7 @@ function library:button(props)
         end)
         cfg.callback()
     end)
+    if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
 
@@ -926,7 +993,7 @@ function library:keybind(props)
     local cfg = {
         name = props.name or "keybind",
         default = props.default or Enum.KeyCode.Unknown,
-        flag = props.flag or props.name or "keybind_flag",
+        flag = props.flag or props.name or "keybind_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
         binding = false
     }
@@ -976,7 +1043,7 @@ function library:keybind(props)
 
     function cfg.set(key)
         cfg.key = key
-        self.flags[cfg.flag] = key
+        library.flags[cfg.flag] = key
         bind_text.Text = key.Name
         cfg.callback(key)
     end
@@ -995,7 +1062,8 @@ function library:keybind(props)
     end)
 
     cfg.set(cfg.default)
-    self.config_flags[cfg.flag] = cfg.set
+    library.config_flags[cfg.flag] = cfg.set
+    if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
 
@@ -1004,7 +1072,7 @@ function library:dropdown(props)
         name = props.name or "dropdown",
         options = props.options or {},
         default = props.default or (props.options and props.options[1] or nil),
-        flag = props.flag or props.name or "dropdown_flag",
+        flag = props.flag or props.name or "dropdown_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
         open = false
     }
@@ -1072,7 +1140,7 @@ function library:dropdown(props)
 
     function cfg.set(val)
         cfg.value = val
-        self.flags[cfg.flag] = val
+        library.flags[cfg.flag] = val
         dd_text.Text = val
         cfg.callback(val)
     end
@@ -1130,16 +1198,16 @@ function library:dropdown(props)
 
     cfg:refresh(cfg.options)
     if cfg.default then cfg.set(cfg.default) end
-    self.config_flags[cfg.flag] = cfg.set
+    library.config_flags[cfg.flag] = cfg.set
+    if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
 
 function library:textbox(props)
-    -- added safe fallbacks to prevent "table index is nil"
     local cfg = {
         placeholder = props.placeholder or "enter text...",
         default = props.default or "",
-        flag = props.flag or props.name or "textbox_"..tostring(math.random(1, 1000)),
+        flag = props.flag or props.name or "textbox_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
         clear_on_focus = props.clear_on_focus or false
     }
@@ -1164,20 +1232,21 @@ function library:textbox(props)
     cfg.instance = tb_frame
 
     self:connection(tb_frame.FocusLost, function()
-        self.flags[cfg.flag] = tb_frame.Text
+        library.flags[cfg.flag] = tb_frame.Text
         cfg.callback(tb_frame.Text)
     end)
 
     if cfg.default ~= "" then
         tb_frame.Text = cfg.default
-        self.flags[cfg.flag] = cfg.default
+        library.flags[cfg.flag] = cfg.default
     end
 
-    self.config_flags[cfg.flag] = function(val)
+    library.config_flags[cfg.flag] = function(val)
         tb_frame.Text = val
-        self.flags[cfg.flag] = val
+        library.flags[cfg.flag] = val
         cfg.callback(val)
     end
+    if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
 
@@ -1187,7 +1256,7 @@ function library:slider(props)
         min = props.min or 0,
         max = props.max or 100,
         default = props.default or 50,
-        flag = props.flag or props.name or "slider_flag",
+        flag = props.flag or props.name or "slider_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
         dragging = false
     }
@@ -1242,7 +1311,7 @@ function library:slider(props)
     function cfg.set(val)
         val = math.clamp(val, cfg.min, cfg.max)
         cfg.value = val
-        self.flags[cfg.flag] = val
+        library.flags[cfg.flag] = val
         val_label.Text = tostring(val)
         local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
         fill.Size = UDim2.new(percent, 0, 1, 0)
@@ -1265,7 +1334,8 @@ function library:slider(props)
     end)
 
     cfg.set(cfg.default)
-    self.config_flags[cfg.flag] = cfg.set
+    library.config_flags[cfg.flag] = cfg.set
+    if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
 
