@@ -1,5 +1,5 @@
 -- load the library
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/library.luau"))()
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/refs/heads/main/library.luau"))()
 
 -- show loading screen
 library:loading_screen({ text = "loading femboy-ware...", duration = 3 })
@@ -8,7 +8,7 @@ library:loading_screen({ text = "loading femboy-ware...", duration = 3 })
 local window = library:window({ title = "femboy-ware | best ui", size = UDim2.new(0, 650, 0, 450) })
 
 -- create a tab
-local combat_tab = window:tab({ name = "combat", icon = "up.png" })
+local combat_tab = window:tab({ name = "combat", icon = "up" })
 
 -- create a section
 local aimbot_section = combat_tab:section({ name = "aimbot" })
@@ -55,7 +55,7 @@ aimbot_section:keybind({
 })
 
 -- visual tab
-local visual_tab = window:tab({ name = "visuals", icon = "expand.png" })
+local visual_tab = window:tab({ name = "visuals", icon = "expand" })
 local esp_section = visual_tab:section({ name = "esp settings" })
 
 esp_section:toggle({
@@ -76,6 +76,3 @@ esp_section:button({
         library:notification({ text = "players refreshed!" })
     end
 })
-
--- settings tab is auto-created!
--- you can save/load configs there.
