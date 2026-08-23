@@ -187,8 +187,7 @@ function library:loading_screen(props)
         text = props.text or "loading...",
         duration = props.duration or 2,
         icon = props.icon or "loader",
-        size = props.size or UDim2.new(0, 650, 0, 450),
-        position = props.position or UDim2.new(0.5, 0, 0.5, 0)
+        size = props.size or UDim2.new(0, 650, 0, 450)
     }
 
     if self.gui and self.gui:FindFirstChild("main") then
@@ -206,7 +205,7 @@ function library:loading_screen(props)
         Name = "loader",
         Parent = loader_gui,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = cfg.position,
+        Position = UDim2.new(0.5, 0, 0.5, 0),
         Size = cfg.size,
         BackgroundColor3 = Color3.fromRGB(15, 15, 15),
         BorderSizePixel = 0,
@@ -219,8 +218,8 @@ function library:loading_screen(props)
         Parent = screen,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, -20),
-        Size = UDim2.new(0, 80, 0, 80),
+        Position = UDim2.new(0.5, 0, 0.5, -40),
+        Size = UDim2.new(0, 120, 0, 120),
         Image = self:get_icon(cfg.icon)
     })
 
@@ -229,7 +228,7 @@ function library:loading_screen(props)
         Parent = screen,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 40),
+        Position = UDim2.new(0.5, 0, 0.5, 60),
         Size = UDim2.new(0, 200, 0, 20),
         Font = Enum.Font.GothamBold,
         Text = cfg.text,
@@ -290,7 +289,8 @@ function library:window(props)
         Name = "main",
         Parent = self.gui,
         Size = cfg.size,
-        Position = UDim2.new(0.5, -cfg.size.X.Offset/2, 0.5, -cfg.size.Y.Offset/2),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
         BackgroundColor3 = self.themes.preset.background,
         BorderSizePixel = 0,
         ClipsDescendants = true
@@ -311,8 +311,8 @@ function library:window(props)
         Name = "icon",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 10, 0, 4),
-        Size = UDim2.new(0, 32, 0, 32),
+        Position = UDim2.new(0, 8, 0, 2),
+        Size = UDim2.new(0, 36, 0, 36),
         Image = self:get_icon(cfg.icon)
     })
 
@@ -320,7 +320,7 @@ function library:window(props)
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 50, 0, 0),
+        Position = UDim2.new(0, 52, 0, 0),
         Size = UDim2.new(1, -200, 1, 0),
         Font = Enum.Font.GothamBold,
         RichText = true,
@@ -586,22 +586,12 @@ function library:window(props)
     self:connection(settings_btn.MouseButton1Click, function() cfg.settings_tab:select() end)
 
     local ui_section = cfg.settings_tab:section({ name = "ui" })
-    ui_section:dropdown({
+    ui_section:colorpicker({
         name = "accent color",
-        options = {"pink", "red", "blue", "green", "purple"},
-        default = "pink",
+        default = library.themes.preset.accent,
         flag = "accent_color",
-        callback = function(val)
-            local colors = {
-                ["pink"] = Color3.fromRGB(255, 105, 180),
-                ["red"] = Color3.fromRGB(255, 50, 50),
-                ["blue"] = Color3.fromRGB(50, 150, 255),
-                ["green"] = Color3.fromRGB(50, 255, 100),
-                ["purple"] = Color3.fromRGB(150, 50, 255)
-            }
-            if colors[val] then
-                self:change_accent(colors[val])
-            end
+        callback = function(color)
+            self:change_accent(color)
         end
     })
     ui_section:keybind({
@@ -939,7 +929,7 @@ function library:section(props)
     cfg.frame = section_frame
 
     self:connection(elements_layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-        local target_height = elements_layout.AbsoluteContentSize.Y + 12 -- 4 top + 8 bottom padding
+        local target_height = elements_layout.AbsoluteContentSize.Y + 12 
         local target_frame_size = target_height + 32
         if cfg.expanded then
             elements_holder.Size = UDim2.new(1, 0, 0, target_height)
@@ -1127,7 +1117,7 @@ function library:keybind(props)
         Name = "name",
         Parent = bind_frame,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, -50, 1, 0),
+        Size = UDim2.new(1, -70, 1, 0),
         Font = Enum.Font.Gotham,
         Text = cfg.name,
         TextColor3 = self.themes.preset.text,
@@ -1138,8 +1128,8 @@ function library:keybind(props)
     local bind_btn = self:create("TextButton", {
         Name = "bind",
         Parent = bind_frame,
-        Position = UDim2.new(1, -48, 0, 6),
-        Size = UDim2.new(0, 40, 0, 20),
+        Position = UDim2.new(1, -60, 0, 6),
+        Size = UDim2.new(0, 60, 0, 20),
         BackgroundColor3 = self.themes.preset.dropdown,
         Text = "",
         BorderSizePixel = 0,
@@ -1155,12 +1145,16 @@ function library:keybind(props)
         Font = Enum.Font.Gotham,
         Text = "...",
         TextColor3 = self.themes.preset.placeholder,
-        TextSize = 12
+        TextScaled = true
     })
 
     local function bind_input(key)
+        if type(key) == "string" then
+            local enum_val = Enum.KeyCode[key]
+            if enum_val then key = enum_val else return end
+        end
         cfg.key = key
-        library.flags[cfg.flag] = key
+        library.flags[cfg.flag] = key.Name
         bind_text.Text = key.Name
         if cfg.conn and type(cfg.conn.Disconnect) == "function" then cfg.conn:Disconnect() end
         cfg.conn = uis.InputBegan:Connect(function(input, gpe)
@@ -1188,9 +1182,7 @@ function library:keybind(props)
 
     bind_input(cfg.default)
     library.config_flags[cfg.flag] = function(val)
-        if type(val) == "EnumItem" then
-            bind_input(val)
-        end
+        bind_input(val)
     end
     if self.elements then table.insert(self.elements, cfg) end
     return cfg
@@ -1302,20 +1294,22 @@ function library:dropdown(props)
             })
             library:connection(opt_btn.MouseButton1Click, function()
                 cfg.set(opt)
-                cfg.open = false
-                tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = 0 }):Play()
-                tween_service:Create(dd_list, TweenInfo.new(0.2), { Size = UDim2.new(1, 0, 0, 0) }):Play()
-                task.delay(0.2, function() dd_list.Visible = false end)
+                toggle_dropdown(false)
             end)
         end
     end
 
-    self:connection(dd_btn.MouseButton1Click, function()
-        cfg.open = not cfg.open
-        local target_h = cfg.open and (dd_layout.AbsoluteContentSize.Y) or 0
-        tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = cfg.open and 180 or 0 }):Play()
+    local function toggle_dropdown(open)
+        cfg.open = open
+        local target_h = open and (dd_layout.AbsoluteContentSize.Y) or 0
         
-        if cfg.open then
+        tween_service:Create(dd_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { 
+            Size = UDim2.new(1, 0, 0, 42 + target_h) 
+        }):Play()
+        
+        tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = open and 180 or 0 }):Play()
+        
+        if open then
             dd_list.Visible = true
             dd_list.Size = UDim2.new(1, 0, 0, 0)
             tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_h) }):Play()
@@ -1323,6 +1317,10 @@ function library:dropdown(props)
             tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(1, 0, 0, 0) }):Play()
             task.delay(0.2, function() if not cfg.open then dd_list.Visible = false end end)
         end
+    end
+
+    self:connection(dd_btn.MouseButton1Click, function()
+        toggle_dropdown(not cfg.open)
     end)
 
     cfg:refresh(cfg.options)
@@ -1477,6 +1475,162 @@ function library:slider(props)
 
     cfg.set(cfg.default)
     library.config_flags[cfg.flag] = cfg.set
+    if self.elements then table.insert(self.elements, cfg) end
+    return cfg
+end
+
+function library:colorpicker(props)
+    local cfg = {
+        name = props.name or "colorpicker",
+        default = props.default or Color3.fromRGB(255, 255, 255),
+        flag = props.flag or props.name or "colorpicker_"..tostring(math.random(1, 100000)),
+        callback = props.callback or function() end
+    }
+
+    local cp_frame = self:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1 })
+    self:create("TextLabel", {
+        Name = "name",
+        Parent = cp_frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 18),
+        Size = UDim2.new(1, 0, 0, 16),
+        Font = Enum.Font.Gotham,
+        Text = cfg.name,
+        TextColor3 = self.themes.preset.text,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    local cp_btn = self:create("TextButton", {
+        Name = "box",
+        Parent = cp_frame,
+        Position = UDim2.new(1, -30, 0, 18),
+        Size = UDim2.new(0, 24, 0, 24),
+        BackgroundColor3 = cfg.default,
+        Text = "",
+        BorderSizePixel = 0,
+        ZIndex = 2
+    })
+    self:create("UICorner", { Parent = cp_btn, CornerRadius = UDim.new(0, 4) })
+
+    local popup = self:create("Frame", {
+        Name = "popup",
+        Parent = self.gui,
+        Visible = false,
+        Size = UDim2.new(0, 140, 0, 160),
+        BackgroundColor3 = self.themes.preset.element_background,
+        BorderSizePixel = 0,
+        ZIndex = 10
+    })
+    self:create("UICorner", { Parent = popup, CornerRadius = UDim.new(0, 4) })
+
+    local h, s, v = Color3.toHSV(cfg.default)
+    h = (h == 0) and 0.001 or h
+
+    local sv_box = self:create("TextButton", {
+        Parent = popup,
+        Position = UDim2.new(0, 10, 0, 10),
+        Size = UDim2.new(0, 120, 0, 120),
+        Text = "",
+        BorderSizePixel = 0,
+        ZIndex = 11,
+        BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+    })
+    local white_frame = self:create("Frame", {
+        Parent = sv_box,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0
+    })
+    self:create("UIGradient", {
+        Parent = white_frame,
+        Transparency = NumberSequence.new(0, 1)
+    })
+    local black_frame = self:create("Frame", {
+        Parent = white_frame,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.new(0, 0, 0),
+        BorderSizePixel = 0
+    })
+    self:create("UIGradient", {
+        Parent = black_frame,
+        Transparency = NumberSequence.new(1, 0),
+        Rotation = 90
+    })
+
+    local hue_bar = self:create("TextButton", {
+        Parent = popup,
+        Position = UDim2.new(0, 10, 0, 140),
+        Size = UDim2.new(0, 120, 0, 10),
+        Text = "",
+        BorderSizePixel = 0,
+        ZIndex = 11
+    })
+    self:create("UIGradient", {
+        Parent = hue_bar,
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 0, 0)),
+            ColorSequenceKeypoint.new(0.17, Color3.fromRGB(255, 255, 0)),
+            ColorSequenceKeypoint.new(0.33, Color3.fromRGB(0, 255, 0)),
+            ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 255, 255)),
+            ColorSequenceKeypoint.new(0.67, Color3.fromRGB(0, 0, 255)),
+            ColorSequenceKeypoint.new(0.83, Color3.fromRGB(255, 0, 255)),
+            ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 0, 0))
+        })
+    })
+
+    local function update_color()
+        local color = Color3.fromHSV(h, s, v)
+        cp_btn.BackgroundColor3 = color
+        sv_box.BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+        library.flags[cfg.flag] = {R=math.floor(color.R*255), G=math.floor(color.G*255), B=math.floor(color.B*255)}
+        if type(cfg.callback) == "function" then cfg.callback(color) end
+    end
+
+    local dragging_sv = false
+    local dragging_hue = false
+
+    self:connection(sv_box.MouseButton1Down, function() dragging_sv = true end)
+    self:connection(uis.InputEnded, function(input) 
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then 
+            dragging_sv = false 
+            dragging_hue = false 
+        end 
+    end)
+    self:connection(uis.InputChanged, function(input)
+        if dragging_sv then
+            local rel_x = math.clamp((input.Position.X - sv_box.AbsolutePosition.X) / sv_box.AbsoluteSize.X, 0, 1)
+            local rel_y = math.clamp((input.Position.Y - sv_box.AbsolutePosition.Y) / sv_box.AbsoluteSize.Y, 0, 1)
+            s = rel_x
+            v = 1 - rel_y
+            update_color()
+        elseif dragging_hue then
+            local rel_x = math.clamp((input.Position.X - hue_bar.AbsolutePosition.X) / hue_bar.AbsoluteSize.X, 0, 1)
+            h = rel_x
+            update_color()
+        end
+    end)
+
+    self:connection(hue_bar.MouseButton1Down, function() dragging_hue = true end)
+
+    self:connection(cp_btn.MouseButton1Click, function()
+        popup.Visible = not popup.Visible
+        if popup.Visible then
+            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 100, 0, cp_btn.AbsolutePosition.Y - 160)
+        end
+    end)
+
+    function cfg.set(color)
+        if type(color) == "table" then
+            color = Color3.fromRGB(color.R or color[1] or 255, color.G or color[2] or 255, color.B or color[3] or 255)
+        end
+        h, s, v = Color3.toHSV(color)
+        h = (h == 0) and 0.001 or h
+        update_color()
+    end
+
+    update_color()
+    library.config_flags[cfg.flag] = function(val) cfg.set(val) end
     if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
