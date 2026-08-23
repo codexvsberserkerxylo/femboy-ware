@@ -78,7 +78,6 @@ function library:get_icon(icon)
         return getcustomasset(path)
     end
 
-    -- check both assets/icons/ and assets/ folders
     local urls = {
         "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/icons/" .. file_name,
         "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/assets/" .. file_name
@@ -118,7 +117,8 @@ function library:loading_screen(props)
     local cfg = {
         text = props.text or "loading...",
         duration = props.duration or 2,
-        icon = props.icon or "logo"
+        icon = props.icon or "loader",
+        size = props.size or UDim2.new(0, 650, 0, 450)
     }
 
     local loader_gui = self:create("ScreenGui", {
@@ -133,7 +133,7 @@ function library:loading_screen(props)
         Parent = loader_gui,
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, 0),
-        Size = UDim2.new(0, 600, 0, 400),
+        Size = cfg.size,
         BackgroundColor3 = Color3.fromRGB(15, 15, 15),
         BorderSizePixel = 0,
         ClipsDescendants = true
@@ -163,7 +163,8 @@ function library:loading_screen(props)
         TextSize = 14
     })
 
-    local spin_info = TweenInfo.new(2, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
+    -- fast to slow rotation
+    local spin_info = TweenInfo.new(1.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     local spin_tween = tween_service:Create(logo, spin_info, { Rotation = 360 })
     spin_tween:Play()
     
@@ -195,7 +196,10 @@ function library:window(props)
         title = props.title or "femboy-ware",
         subtitle = props.subtitle or "",
         size = props.size or UDim2.new(0, 650, 0, 450),
-        icon = props.icon or "logo"
+        icon = props.icon or "logo",
+        discord_link = props.discord_link or "https://discord.gg/yourserver",
+        supported_executors = props.supported_executors or {"xeno", "velocity", "solara", "synz", "potassium", "volt", "cosmic", "wave", "madium", "real", "sirhurt", "delta", "codex"},
+        changelog_url = props.changelog_url or "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/changelog.md"
     }
 
     self.gui = self:create("ScreenGui", {
@@ -230,8 +234,8 @@ function library:window(props)
         Name = "icon",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 8),
-        Size = UDim2.new(0, 24, 0, 24),
+        Position = UDim2.new(0, 10, 0, 6),
+        Size = UDim2.new(0, 28, 0, 28),
         Image = self:get_icon(cfg.icon)
     })
 
@@ -239,7 +243,7 @@ function library:window(props)
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 44, 0, 0),
+        Position = UDim2.new(0, 48, 0, 0),
         Size = UDim2.new(1, -200, 1, 0),
         Font = Enum.Font.GothamBold,
         RichText = true,
@@ -398,35 +402,108 @@ function library:window(props)
         local target_x = panel_collapsed and 58 or 148
         local target_icon = panel_collapsed and "panel-open" or "panel-close"
         
-        tween_service:Create(sidebar, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Size = UDim2.new(0, target_w, 1, 0) }):Play()
-        tween_service:Create(tab_content, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = UDim2.new(0, target_x, 0, 0), Size = UDim2.new(1, -target_x, 1, 0) }):Play()
+        local t_info = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        
+        tween_service:Create(sidebar, t_info, { Size = UDim2.new(0, target_w, 1, 0) }):Play()
+        tween_service:Create(tab_content, t_info, { Position = UDim2.new(0, target_x, 0, 0), Size = UDim2.new(1, -target_x, 1, 0) }):Play()
         panel_btn.Image = self:get_icon(target_icon)
         
         for _, tab in next, self.tabs do
-            if tab.text_label then
-                tab.text_label.Visible = not panel_collapsed
-            end
+            if tab.text_label then tab.text_label.Visible = not panel_collapsed end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0.5, -8, 0, 8) or UDim2.new(0, 8, 0, 8)
-                tween_service:Create(tab.icon_label, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = target_pos }):Play()
+                local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 8, 0.5, 0)
+                tab.icon_label.AnchorPoint = Vector2.new(0, 0.5)
+                tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         pname_label.Visible = not panel_collapsed
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = UDim2.new(0.5, -16, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0.5, -16, 0.5, 0) }):Play()
         else
-            tween_service:Create(avatar_img, TweenInfo.new(0.3, Enum.EasingStyle.Quart), { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
     end)
 
     self.tabs = {}
 
+    -- home tab setup
     local home_tab = self:tab({ name = "home", icon = "house", hidden_order = -1 })
-    local home_section = home_tab:section({ name = "info" })
-    home_section:add_info_row("welcome", "hello " .. player.DisplayName)
-    home_section:add_info_row("script", "femboy-ware v1.0")
-    home_section:add_info_row("status", "undetected")
+    
+    local info_section = home_tab:section({ name = "info" })
+    local exec_name = identifyexecutor()
+    local is_supported = false
+    for _, ex in ipairs(cfg.supported_executors) do
+        if string.find(string.lower(exec_name), string.lower(ex)) then
+            is_supported = true
+            break
+        end
+    end
+    
+    info_section:add_info_row("welcome", "hello " .. player.DisplayName)
+    info_section:add_info_row("script", cfg.title)
+    info_section:add_info_row("executor", exec_name)
+    info_section:add_info_row("support", is_supported and "supported" or "unsupported")
+    
+    info_section:button({
+        name = "join discord",
+        callback = function()
+            -- executor pcall to avoid sandbox errors
+            pcall(function()
+                if setclipboard then setclipboard(cfg.discord_link) end
+            end)
+            self:notification({ text = "discord link copied to clipboard!" })
+        end
+    })
+
+    local changelog_section = home_tab:section({ name = "changelog" })
+    local changelog_text = "failed to load changelog."
+    local success, data = pcall(function()
+        return game:HttpGet(cfg.changelog_url)
+    end)
+    if success and data then
+        changelog_text = data
+    end
+
+    local cl_frame = self:create("Frame", {
+        Name = "cl_frame",
+        Parent = changelog_section.holder,
+        Size = UDim2.new(1, 0, 0, 150),
+        BackgroundColor3 = self.themes.preset.dropdown,
+        BorderSizePixel = 0
+    })
+    self:create("UICorner", { Parent = cl_frame, CornerRadius = UDim.new(0, 4) })
+    
+    local cl_scroll = self:create("ScrollingFrame", {
+        Name = "scroll",
+        Parent = cl_frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 4, 0, 4),
+        Size = UDim2.new(1, -8, 1, -8),
+        ScrollBarThickness = 4,
+        ScrollBarImageColor3 = self.themes.preset.accent,
+        CanvasSize = UDim2.new(0, 0, 0, 0),
+        AutomaticCanvasSize = Enum.AutomaticSize.Y,
+        BorderSizePixel = 0
+    })
+    self:create("UIPadding", { Parent = cl_scroll, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) })
+
+    local cl_label = self:create("TextLabel", {
+        Name = "text",
+        Parent = cl_scroll,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 0, 0),
+        AutomaticSize = Enum.AutomaticSize.Y,
+        RichText = true,
+        Font = Enum.Font.Gotham,
+        Text = changelog_text,
+        TextColor3 = self.themes.preset.text,
+        TextSize = 12,
+        TextWrapped = true,
+        TextXAlignment = Enum.TextXAlignment.Left,
+        TextYAlignment = Enum.TextYAlignment.Top
+    })
+
     home_tab:select()
 
     cfg.settings_tab = self:tab({ name = "settings", icon = "settings", hidden = true })
@@ -531,7 +608,8 @@ function library:tab(props)
         Name = "icon",
         Parent = button,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 8, 0, 8),
+        AnchorPoint = Vector2.new(0, 0.5),
+        Position = UDim2.new(0, 8, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
     })
@@ -621,10 +699,10 @@ function library:section(props)
     local section_frame = self:create("Frame", {
         Name = cfg.name,
         Parent = self.frame,
-        Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
+        Size = UDim2.new(1, 0, 0, 32),
         BackgroundColor3 = self.themes.preset.element_background,
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ClipsDescendants = true
     })
     self:create("UICorner", { Parent = section_frame, CornerRadius = UDim.new(0, 4) })
 
@@ -677,28 +755,27 @@ function library:section(props)
         Parent = section_frame,
         Position = UDim2.new(0, 0, 0, 32),
         Size = UDim2.new(1, 0, 0, 0),
-        AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundTransparency = 1,
         ClipsDescendants = true
     })
-    self:create("UIListLayout", { Parent = elements_holder, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
+    local elements_layout = self:create("UIListLayout", { Parent = elements_holder, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder })
     self:create("UIPadding", { Parent = elements_holder, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
 
     cfg.holder = elements_holder
 
+    -- flawless dropdown logic
     self:connection(header.MouseButton1Click, function()
         cfg.expanded = not cfg.expanded
-        local target_size = cfg.expanded and elements_holder.AbsoluteSize.Y or 0
+        
+        local target_height = cfg.expanded and elements_layout.AbsoluteContentSize.Y or 0
+        local target_frame_size = target_height + 32
         local target_rot = cfg.expanded and 0 or 180
         
-        tween_service:Create(elements_holder, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_size) }):Play()
-        tween_service:Create(dropdown_icon, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Rotation = target_rot }):Play()
-
-        if cfg.expanded then
-            task.delay(0.3, function() elements_holder.AutomaticSize = Enum.AutomaticSize.Y end)
-        else
-            elements_holder.AutomaticSize = Enum.AutomaticSize.None
-        end
+        local t_info = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+        
+        tween_service:Create(elements_holder, t_info, { Size = UDim2.new(1, 0, 0, target_height) }):Play()
+        tween_service:Create(section_frame, t_info, { Size = UDim2.new(1, 0, 0, target_frame_size) }):Play()
+        tween_service:Create(dropdown_icon, t_info, { Rotation = target_rot }):Play()
     end)
 
     function cfg:add_info_row(name, val)
@@ -733,6 +810,13 @@ function library:section(props)
         })
     end
 
+    -- delay to let layout calculate
+    task.defer(function()
+        local target_height = elements_layout.AbsoluteContentSize.Y
+        section_frame.Size = UDim2.new(1, 0, 0, target_height + 32)
+        elements_holder.Size = UDim2.new(1, 0, 0, target_height)
+    end)
+
     return setmetatable(cfg, { __index = self })
 end
 
@@ -740,7 +824,7 @@ function library:toggle(props)
     local cfg = {
         name = props.name or "toggle",
         default = props.default or false,
-        flag = props.flag or props.name,
+        flag = props.flag or props.name or "toggle_flag",
         callback = props.callback or function() end
     }
 
@@ -842,7 +926,7 @@ function library:keybind(props)
     local cfg = {
         name = props.name or "keybind",
         default = props.default or Enum.KeyCode.Unknown,
-        flag = props.flag or props.name,
+        flag = props.flag or props.name or "keybind_flag",
         callback = props.callback or function() end,
         binding = false
     }
@@ -920,12 +1004,12 @@ function library:dropdown(props)
         name = props.name or "dropdown",
         options = props.options or {},
         default = props.default or (props.options and props.options[1] or nil),
-        flag = props.flag or props.name,
+        flag = props.flag or props.name or "dropdown_flag",
         callback = props.callback or function() end,
         open = false
     }
 
-    local dd_frame = self:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 32), BackgroundTransparency = 1 })
+    local dd_frame = self:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1 })
     self:create("TextLabel", {
         Name = "name",
         Parent = dd_frame,
@@ -979,17 +1063,12 @@ function library:dropdown(props)
         Size = UDim2.new(1, 0, 0, 0),
         BackgroundColor3 = self.themes.preset.dropdown,
         BorderSizePixel = 0,
-        Visible = false
+        Visible = false,
+        ClipsDescendants = true
     })
     self:create("UICorner", { Parent = dd_list, CornerRadius = UDim.new(0, 4) })
-    self:create("UIListLayout", { Parent = dd_list, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
+    local dd_layout = self:create("UIListLayout", { Parent = dd_list, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
     self:create("UIPadding", { Parent = dd_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
-
-    local function set_height()
-        local count = 0
-        for _ in next, cfg.options do count += 1 end
-        dd_list.Size = UDim2.new(1, 0, 0, math.clamp(count * 24 + 8, 0, 120))
-    end
 
     function cfg.set(val)
         cfg.value = val
@@ -1028,16 +1107,25 @@ function library:dropdown(props)
                 cfg.set(opt)
                 cfg.open = false
                 tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = 0 }):Play()
-                dd_list.Visible = false
+                tween_service:Create(dd_list, TweenInfo.new(0.2), { Size = UDim2.new(1, 0, 0, 0) }):Play()
+                task.delay(0.2, function() dd_list.Visible = false end)
             end)
         end
-        set_height()
     end
 
     self:connection(dd_btn.MouseButton1Click, function()
         cfg.open = not cfg.open
+        local target_h = cfg.open and (dd_layout.AbsoluteContentSize.Y) or 0
         tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = cfg.open and 180 or 0 }):Play()
-        dd_list.Visible = cfg.open
+        
+        if cfg.open then
+            dd_list.Visible = true
+            dd_list.Size = UDim2.new(1, 0, 0, 0)
+            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_h) }):Play()
+        else
+            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(1, 0, 0, 0) }):Play()
+            task.delay(0.2, function() if not cfg.open then dd_list.Visible = false end end)
+        end
     end)
 
     cfg:refresh(cfg.options)
@@ -1047,10 +1135,11 @@ function library:dropdown(props)
 end
 
 function library:textbox(props)
+    -- added safe fallbacks to prevent "table index is nil"
     local cfg = {
         placeholder = props.placeholder or "enter text...",
         default = props.default or "",
-        flag = props.flag or props.name,
+        flag = props.flag or props.name or "textbox_"..tostring(math.random(1, 1000)),
         callback = props.callback or function() end,
         clear_on_focus = props.clear_on_focus or false
     }
@@ -1098,7 +1187,7 @@ function library:slider(props)
         min = props.min or 0,
         max = props.max or 100,
         default = props.default or 50,
-        flag = props.flag or props.name,
+        flag = props.flag or props.name or "slider_flag",
         callback = props.callback or function() end,
         dragging = false
     }
