@@ -1,78 +1,142 @@
--- load the library
-local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/refs/heads/main/library.luau"))()
+local library = loadstring(game:HttpGet("https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/library.luau"))()
 
--- show loading screen
-library:loading_screen({ text = "loading femboy-ware...", duration = 3 })
+local players = game:GetService("Players")
+local uis = game:GetService("UserInputService")
+local player = players.LocalPlayer
 
--- create window
-local window = library:window({ title = "femboy-ware | best ui", size = UDim2.new(0, 650, 0, 450) })
+local window = library:window({ 
+    title = "Lunar X", 
+    subtitle = " - mm2", 
+    size = UDim2.new(0, 650, 0, 450),
+    icon = "moon",
+    discord_link = "discord.gg/n6SzrKpVnU",
+    script_url = "https://raw.githubusercontent.com/codexvsberserkerxylo/scripts/refs/heads/main/mm2.luau"
+})
 
--- create a tab
-local combat_tab = window:tab({ name = "combat", icon = "up" })
+library:loading_screen({ text = "loading lunar x...", duration = 3, size = window.size })
 
--- create a section
+local combat_tab = window:tab({ name = "combat", icon = "swords", search = true })
 local aimbot_section = combat_tab:section({ name = "aimbot" })
 
--- add elements to section
-local enabled_toggle = aimbot_section:toggle({
+aimbot_section:toggle({
     name = "enabled",
     default = false,
     flag = "aimbot_enabled",
-    callback = function(val)
-        print("aimbot enabled:", val)
-    end
+    callback = function(val) print("aimbot enabled:", val) end
 })
 
-local smoothness_slider = aimbot_section:slider({
+aimbot_section:slider({
     name = "smoothness",
-    min = 0,
-    max = 10,
-    default = 5,
+    min = 0, max = 10, default = 5,
     flag = "aimbot_smoothness",
-    callback = function(val)
-        print("smoothness:", val)
-    end
+    callback = function(val) print("smoothness:", val) end
 })
 
-local bodypart_dropdown = aimbot_section:dropdown({
+aimbot_section:toggle({
+    name = "enabled",
+    default = false,
+    flag = "aimbot_enabled",
+    callback = function(val) print("aimbot enabled:", val) end
+})
+
+aimbot_section:slider({
+    name = "smoothness",
+    min = 0, max = 10, default = 5,
+    flag = "aimbot_smoothness",
+    callback = function(val) print("smoothness:", val) end
+})
+
+aimbot_section:toggle({
+    name = "enabled",
+    default = false,
+    flag = "aimbot_enabled",
+    callback = function(val) print("aimbot enabled:", val) end
+})
+
+aimbot_section:slider({
+    name = "smoothness",
+    min = 0, max = 10, default = 5,
+    flag = "aimbot_smoothness",
+    callback = function(val) print("smoothness:", val) end
+})
+
+aimbot_section:toggle({
+    name = "enabled",
+    default = false,
+    flag = "aimbot_enabled",
+    callback = function(val) print("aimbot enabled:", val) end
+})
+
+aimbot_section:slider({
+    name = "smoothness",
+    min = 0, max = 10, default = 5,
+    flag = "aimbot_smoothness",
+    callback = function(val) print("smoothness:", val) end
+})
+
+aimbot_section:toggle({
+    name = "enabled",
+    default = false,
+    flag = "aimbot_enabled",
+    callback = function(val) print("aimbot enabled:", val) end
+})
+
+aimbot_section:slider({
+    name = "smoothness",
+    min = 0, max = 10, default = 5,
+    flag = "aimbot_smoothness",
+    callback = function(val) print("smoothness:", val) end
+})
+
+aimbot_section:dropdown({
     name = "target part",
     options = { "Head", "Torso", "Left Arm", "Right Arm" },
     default = "Head",
     flag = "aimbot_part",
-    callback = function(val)
-        print("target part:", val)
-    end
+    callback = function(val) print("target part:", val) end
 })
 
--- keybind for aimbot
-aimbot_section:keybind({
-    name = "aimbot key",
-    default = Enum.KeyCode.E,
-    flag = "aimbot_key",
-    callback = function(key)
-        print("aimbot key set to:", key.Name)
-    end
-})
+local player_tab = window:tab({ name = "player", icon = "user", search = true })
+local movement_section = player_tab:section({ name = "movement" })
 
--- visual tab
-local visual_tab = window:tab({ name = "visuals", icon = "expand" })
-local esp_section = visual_tab:section({ name = "esp settings" })
-
-esp_section:toggle({
-    name = "box esp",
-    default = true,
-    flag = "esp_box"
-})
-
-esp_section:toggle({
-    name = "name esp",
+movement_section:toggle({
+    name = "infinite jump",
     default = false,
-    flag = "esp_name"
-})
-
-esp_section:button({
-    name = "refresh players",
-    callback = function()
-        library:notification({ text = "players refreshed!" })
+    flag = "inf_jump",
+    callback = function(state)
+        if state then
+            library.connections.inf_jump = uis.JumpRequest:Connect(function()
+                if library.flags["inf_jump"] then
+                    local char = player.Character
+                    if char and char:FindFirstChildOfClass("Humanoid") then
+                        char:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Jumping)
+                    end
+                end
+            end)
+        else
+            if library.connections.inf_jump then
+                library.connections.inf_jump:Disconnect()
+                library.connections.inf_jump = nil
+            end
+        end
     end
 })
+
+movement_section:slider({
+    name = "walk speed",
+    min = 16, max = 500, default = 16,
+    flag = "walk_speed",
+    callback = function(val)
+        local char = player.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            char:FindFirstChildOfClass("Humanoid").WalkSpeed = val
+        end
+    end
+})
+
+player.CharacterAdded:Connect(function()
+    if library.flags["walk_speed"] then
+        local hum = player.Character:WaitForChild("Humanoid")
+        hum.WalkSpeed = library.flags["walk_speed"]
+    end
+end)
