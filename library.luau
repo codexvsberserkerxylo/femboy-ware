@@ -1,15 +1,16 @@
-local gethui = gethui or function() return game:GetService("CoreGui") end
-local makefolder = makefolder or function() end
-local isfolder = isfolder or function() return false end
-local isfile = isfile or function() return false end
-local writefile = writefile or function() end
-local readfile = readfile or function() return nil end
-local listfiles = listfiles or function() return {} end
-local getcustomasset = getcustomasset or function() return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
-local getgenv = getgenv or function() return _G end
-local identifyexecutor = identifyexecutor or function() return "Unknown" end
-local setclipboard = setclipboard or function() end
-local queue_on_teleport = queue_on_teleport or function() end
+local gethui = type(gethui) == "function" and gethui or function() return game:GetService("CoreGui") end
+local makefolder = type(makefolder) == "function" and makefolder or function() end
+local isfolder = type(isfolder) == "function" and isfolder or function() return false end
+local isfile = type(isfile) == "function" and isfile or function() return false end
+local writefile = type(writefile) == "function" and writefile or function() end
+local readfile = type(readfile) == "function" and readfile or function() return nil end
+local listfiles = type(listfiles) == "function" and listfiles or function() return {} end
+local delfile = type(delfile) == "function" and delfile or function() end
+local getcustomasset = type(getcustomasset) == "function" and getcustomasset or function() return "rbxasset://textures/ui/GuiImagePlaceholder.png" end
+local getgenv = type(getgenv) == "function" and getgenv or function() return _G end
+local identifyexecutor = type(identifyexecutor) == "function" and identifyexecutor or function() return "Unknown" end
+local setclipboard = type(setclipboard) == "function" and setclipboard or function() end
+local queue_on_teleport = type(queue_on_teleport) == "function" and queue_on_teleport or function() end
 
 local players = game:GetService("Players")
 local uis = game:GetService("UserInputService")
