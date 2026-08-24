@@ -27,16 +27,25 @@ end
 
 local function hex_to_color(hex)
     if type(hex) ~= "string" then return nil end
-    if string.sub(hex, 1, 1) == "#" then hex = string.sub(hex, 2) end
-    if #hex == 6 then
-        local r = tonumber(string.sub(hex, 1, 2), 16)
-        local g = tonumber(string.sub(hex, 3, 4), 16)
-        local b = tonumber(string.sub(hex, 5, 6), 16)
+    if string.sub(hex, 1, 1) ~= "#" then hex = "#" .. hex end
+    
+    -- Use executor's Color3.fromHex if available
+    if Color3.fromHex then
+        local ok, color = pcall(Color3.fromHex, hex)
+        if ok and color then return color end
+    end
+    
+    -- Fallback just in case
+    local clean_hex = string.gsub(hex, "#", "")
+    if #clean_hex == 6 then
+        local r = tonumber(string.sub(clean_hex, 1, 2), 16)
+        local g = tonumber(string.sub(clean_hex, 3, 4), 16)
+        local b = tonumber(string.sub(clean_hex, 5, 6), 16)
         if r and g and b then return Color3.fromRGB(r, g, b) end
-    elseif #hex == 3 then
-        local r = tonumber(string.sub(hex, 1, 1), 16) * 17
-        local g = tonumber(string.sub(hex, 2, 2), 16) * 17
-        local b = tonumber(string.sub(hex, 3, 3), 16) * 17
+    elseif #clean_hex == 3 then
+        local r = tonumber(string.sub(clean_hex, 1, 1), 16) * 17
+        local g = tonumber(string.sub(clean_hex, 2, 2), 16) * 17
+        local b = tonumber(string.sub(clean_hex, 3, 3), 16) * 17
         if r and g and b then return Color3.fromRGB(r, g, b) end
     end
     return nil
@@ -51,6 +60,7 @@ local library = {
     background_elements = {},
     active_toggles = {},
     active_notifs = {},
+    active_popups = {},
     current_tab = nil,
     directory = "Femboy-Ware",
     drag_speed = 0.08,
@@ -69,6 +79,16 @@ local library = {
     },
     tab_order = 0
 }
+
+function library:close_popups()
+    for i = #self.active_popups, 1, -1 do
+        local p = self.active_popups[i]
+        if p and p.Parent then
+            p.Visible = false
+        end
+        table.remove(self.active_popups, i)
+    end
+end
 
 function library:create(class, props)
     local inst = Instance.new(class)
@@ -359,8 +379,8 @@ function library:window(props)
         Name = "icon",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 8, 0, 8),
-        Size = UDim2.new(0, 24, 0, 24),
+        Position = UDim2.new(0, 8, 0, 2),
+        Size = UDim2.new(0, 36, 0, 36),
         Image = self:get_icon(cfg.icon)
     })
 
@@ -368,7 +388,7 @@ function library:window(props)
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 40, 0, 0),
+        Position = UDim2.new(0, 52, 0, 0),
         Size = UDim2.new(1, -200, 1, 0),
         Font = Enum.Font.GothamBold,
         RichText = true,
@@ -511,6 +531,8 @@ function library:window(props)
                     main_frame.Position = target_pos
                 end
             end
+        elseif input.UserInputType == Enum.UserInputType.MouseWheel then
+            library:close_popups()
         end
     end)
 
@@ -519,6 +541,7 @@ function library:window(props)
     local minimized = false
     self:connection(minimize_btn.MouseButton1Click, function()
         minimized = not minimized
+        self:close_popups()
         local target_size = minimized and UDim2.new(cfg.size.X.Scale, cfg.size.X.Offset, 0, 40) or cfg.size
         minimize_btn.Image = minimized and self:get_icon("maximize") or self:get_icon("minimize")
         content.Visible = not minimized
@@ -528,6 +551,7 @@ function library:window(props)
     local panel_collapsed = false
     self:connection(panel_btn.MouseButton1Click, function()
         panel_collapsed = not panel_collapsed
+        self:close_popups()
         local target_w = panel_collapsed and 50 or 140
         local target_x = panel_collapsed and 58 or 148
         local target_icon = panel_collapsed and "panel-open" or "panel-close"
@@ -543,14 +567,14 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0, 11, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 3, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -995,6 +1019,8 @@ function library:tab(props)
 
     function cfg:select()
         if library.current_tab == cfg then return end
+        
+        library:close_popups()
         
         local old_tab = library.current_tab
         local direction = 1
@@ -1471,6 +1497,27 @@ function library:dropdown(props)
         if type(cfg.callback) == "function" then cfg.callback(val) end
     end
 
+    local function toggle_dropdown(open)
+        cfg.open = open
+        local max_h = math.clamp(dd_layout.AbsoluteContentSize.Y, 0, 150)
+        local target_h = open and max_h or 0
+        
+        tween_service:Create(dd_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { 
+            Size = UDim2.new(1, 0, 0, 42 + target_h) 
+        }):Play()
+        
+        tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = open and 180 or 0 }):Play()
+        
+        if open then
+            dd_list.Visible = true
+            dd_list.Size = UDim2.new(1, 0, 0, 0)
+            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_h) }):Play()
+        else
+            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(1, 0, 0, 0) }):Play()
+            task.delay(0.2, function() if not cfg.open then dd_list.Visible = false end end)
+        end
+    end
+
     function cfg:refresh(opts)
         cfg.options = opts
         for _, child in next, dd_list:GetChildren() do
@@ -1500,7 +1547,7 @@ function library:dropdown(props)
                     Position = UDim2.new(0, 8, 0, 2),
                     Size = UDim2.new(0, 16, 0, 16),
                     BackgroundTransparency = 1,
-                    Image = library:get_icon(icon)
+                    Image = library:get_icon(icon) 
                 })
                 text_x = 32
             end
@@ -1521,27 +1568,6 @@ function library:dropdown(props)
                 cfg.set(name)
                 toggle_dropdown(false)
             end)
-        end
-    end
-
-    local function toggle_dropdown(open)
-        cfg.open = open
-        local max_h = math.clamp(dd_layout.AbsoluteContentSize.Y, 0, 150)
-        local target_h = open and max_h or 0
-        
-        tween_service:Create(dd_frame, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { 
-            Size = UDim2.new(1, 0, 0, 42 + target_h) 
-        }):Play()
-        
-        tween_service:Create(dd_icon, TweenInfo.new(0.2), { Rotation = open and 180 or 0 }):Play()
-        
-        if open then
-            dd_list.Visible = true
-            dd_list.Size = UDim2.new(1, 0, 0, 0)
-            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), { Size = UDim2.new(1, 0, 0, target_h) }):Play()
-        else
-            tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(1, 0, 0, 0) }):Play()
-            task.delay(0.2, function() if not cfg.open then dd_list.Visible = false end end)
         end
     end
 
@@ -1917,13 +1943,34 @@ function library:colorpicker(props)
         end
     end)
 
+    local function update_popup_pos()
+        local btn_pos = cp_btn.AbsolutePosition
+        local btn_size = cp_btn.AbsoluteSize
+        -- Spawn it perfectly to the left of the button, or right if it doesn't fit
+        local target_x = btn_pos.X - 230
+        if target_x < 10 then
+            target_x = btn_pos.X + btn_size.X + 10
+        end
+        local target_y = btn_pos.Y - 10
+        popup.Position = UDim2.new(0, target_x, 0, target_y)
+    end
+
     self:connection(cp_btn.MouseButton1Click, function()
-        popup.Visible = not popup.Visible
+        if popup.Visible then
+            popup.Visible = false
+            local idx = table.find(library.active_popups, popup)
+            if idx then table.remove(library.active_popups, idx) end
+        else
+            library:close_popups() -- close others first
+            update_popup_pos()
+            popup.Visible = true
+            table.insert(library.active_popups, popup)
+        end
     end)
 
     self:connection(cp_btn:GetPropertyChangedSignal("AbsolutePosition"), function()
         if popup.Visible then
-            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 180, 0, cp_btn.AbsolutePosition.Y - 80)
+            update_popup_pos()
         end
     end)
 
