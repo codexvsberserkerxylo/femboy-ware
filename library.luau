@@ -960,7 +960,7 @@ function library:tab(props)
         Parent = button,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 11, 0.5, 0),
+        Position = UDim2.new(0, 12, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
     })
