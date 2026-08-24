@@ -29,13 +29,11 @@ local function hex_to_color(hex)
     if type(hex) ~= "string" then return nil end
     if string.sub(hex, 1, 1) ~= "#" then hex = "#" .. hex end
     
-    -- Use executor's Color3.fromHex if available
     if Color3.fromHex then
         local ok, color = pcall(Color3.fromHex, hex)
         if ok and color then return color end
     end
     
-    -- Fallback just in case
     local clean_hex = string.gsub(hex, "#", "")
     if #clean_hex == 6 then
         local r = tonumber(string.sub(clean_hex, 1, 2), 16)
@@ -56,14 +54,18 @@ local library = {
     config_flags = {},
     instances = {},
     connections = {},
-    accent_elements = {},
-    background_elements = {},
+    theme_elements = {
+        background = {}, sidebar = {}, accent = {}, text = {},
+        placeholder = {}, stroke = {}, element_background = {},
+        dropdown = {}, highlight = {}
+    },
     active_toggles = {},
     active_notifs = {},
     active_popups = {},
     current_tab = nil,
     directory = "Femboy-Ware",
     drag_speed = 0.08,
+    is_loading = false,
     themes = {
         preset = {
             background = Color3.fromRGB(30, 30, 30),
@@ -94,24 +96,47 @@ function library:create(class, props)
     local inst = Instance.new(class)
     for prop, val in next, props do
         inst[prop] = val
-        if val == self.themes.preset.accent then
-            table.insert(self.accent_elements, {inst = inst, prop = prop})
-        elseif val == self.themes.preset.background then
-            table.insert(self.background_elements, {inst = inst, prop = prop})
+        for t_name, t_color in pairs(self.themes.preset) do
+            if typeof(val) == "Color3" and val == t_color then
+                if not self.theme_elements[t_name] then self.theme_elements[t_name] = {} end
+                table.insert(self.theme_elements[t_name], {inst = inst, prop = prop})
+                break
+            end
         end
     end
     table.insert(self.instances, inst)
     return inst
 end
 
+function library:change_theme(theme_data)
+    local t_info = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+    for t_name, color in pairs(theme_data) do
+        self.themes.preset[t_name] = color
+        if self.theme_elements[t_name] then
+            for _, data in ipairs(self.theme_elements[t_name]) do
+                if data.inst and data.inst.Parent then
+                    tween_service:Create(data.inst, t_info, {[data.prop] = color}):Play()
+                end
+            end
+        end
+    end
+    for _, inst in ipairs(self.active_toggles) do
+        if inst and inst.Parent then
+            tween_service:Create(inst, t_info, {BackgroundColor3 = theme_data.accent or self.themes.preset.accent}):Play()
+        end
+    end
+end
+
 function library:change_accent(color)
     self.themes.preset.accent = color
     local t_info = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
     
-    for _, data in ipairs(self.accent_elements) do
-        if data.inst and data.inst.Parent then
-            local tw = tween_service:Create(data.inst, t_info, {[data.prop] = color})
-            tw:Play()
+    if self.theme_elements.accent then
+        for _, data in ipairs(self.theme_elements.accent) do
+            if data.inst and data.inst.Parent then
+                local tw = tween_service:Create(data.inst, t_info, {[data.prop] = color})
+                tw:Play()
+            end
         end
     end
     for _, inst in ipairs(self.active_toggles) do
@@ -125,10 +150,12 @@ end
 function library:change_background(color)
     self.themes.preset.background = color
     local t_info = TweenInfo.new(0.6, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
-    for _, data in ipairs(self.background_elements) do
-        if data.inst and data.inst.Parent then
-            local tw = tween_service:Create(data.inst, t_info, {[data.prop] = color})
-            tw:Play()
+    if self.theme_elements.background then
+        for _, data in ipairs(self.theme_elements.background) do
+            if data.inst and data.inst.Parent then
+                local tw = tween_service:Create(data.inst, t_info, {[data.prop] = color})
+                tw:Play()
+            end
         end
     end
 end
@@ -252,30 +279,23 @@ function library:loading_screen(props)
     local cfg = {
         text = props.text or "loading...",
         duration = props.duration or 2,
-        icon = props.icon or "loader",
-        size = props.size or UDim2.new(0, 650, 0, 450)
+        icon = props.icon or "loader"
     }
 
-    if self.gui and self.gui:FindFirstChild("main") then
-        self.gui.main.Visible = false
-    end
+    self.is_loading = true
 
-    local loader_gui = self:create("ScreenGui", {
-        Name = "femboy_loader",
-        Parent = gethui(),
-        IgnoreGuiInset = true,
-        DisplayOrder = 9999
-    })
+    if not self.gui or not self.gui:FindFirstChild("main") then return end
+    
+    local main_frame = self.gui.main
+    main_frame.Visible = true
 
     local screen = self:create("Frame", {
         Name = "loader",
-        Parent = loader_gui,
-        AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        Size = cfg.size,
-        BackgroundColor3 = Color3.fromRGB(15, 15, 15),
+        Parent = main_frame,
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = self.themes.preset.background,
         BorderSizePixel = 0,
-        ClipsDescendants = true
+        ZIndex = 9999
     })
     self:create("UICorner", { Parent = screen, CornerRadius = UDim.new(0, 6) })
 
@@ -286,7 +306,8 @@ function library:loading_screen(props)
         AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0.5, 0, 0.5, -40),
         Size = UDim2.new(0, 120, 0, 120),
-        Image = self:get_icon(cfg.icon)
+        Image = self:get_icon(cfg.icon),
+        ZIndex = 10000
     })
 
     local text_label = self:create("TextLabel", {
@@ -299,7 +320,8 @@ function library:loading_screen(props)
         Font = Enum.Font.GothamBold,
         Text = cfg.text,
         TextColor3 = self.themes.preset.text,
-        TextSize = 14
+        TextSize = 14,
+        ZIndex = 10000
     })
 
     local spin_info = TweenInfo.new(1.5, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
@@ -320,16 +342,19 @@ function library:loading_screen(props)
         if spin_conn then spin_conn:Disconnect() end
         if spin_tween then spin_tween:Pause() end
         
-        if self.gui and self.gui:FindFirstChild("main") then
-            self.gui.main.Visible = true
-        end
-        
         tween_service:Create(screen, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 0),
             BackgroundTransparency = 1
         }):Play()
         
-        task.delay(0.8, function() if loader_gui then loader_gui:Destroy() end end)
+        tween_service:Create(logo, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            ImageTransparency = 1
+        }):Play()
+        
+        tween_service:Create(text_label, TweenInfo.new(0.8, Enum.EasingStyle.Quint, Enum.EasingDirection.In), {
+            TextTransparency = 1
+        }):Play()
+        
+        task.delay(0.8, function() if screen then screen:Destroy() end end)
     end)
 end
 
@@ -346,6 +371,9 @@ function library:window(props)
         custom_themes = props.themes or {}
     }
 
+    local to_preload = {"logo", "x", "minimize", "maximize", "settings", "panel-close", "panel-open", "house", "down", "search", "moon", "sun", "contrast", "palette", "loader"}
+    for _, ic in ipairs(to_preload) do self:get_icon(ic) end
+
     self.gui = self:create("ScreenGui", {
         Name = "femboy_ware",
         Parent = gethui(),
@@ -361,7 +389,8 @@ function library:window(props)
         Position = UDim2.new(0.5, 0, 0.5, 0),
         BackgroundColor3 = self.themes.preset.background,
         BorderSizePixel = 0,
-        ClipsDescendants = true
+        ClipsDescendants = true,
+        Visible = false
     })
     self:create("UICorner", { Parent = main_frame, CornerRadius = UDim.new(0, 6) })
     self:create("UIStroke", { Parent = main_frame, Color = self.themes.preset.stroke, Thickness = 1 })
@@ -379,8 +408,8 @@ function library:window(props)
         Name = "icon",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 8, 0, 2),
-        Size = UDim2.new(0, 36, 0, 36),
+        Position = UDim2.new(0, 8, 0, 8),
+        Size = UDim2.new(0, 24, 0, 24),
         Image = self:get_icon(cfg.icon)
     })
 
@@ -388,7 +417,7 @@ function library:window(props)
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 52, 0, 0),
+        Position = UDim2.new(0, 40, 0, 0),
         Size = UDim2.new(1, -200, 1, 0),
         Font = Enum.Font.GothamBold,
         RichText = true,
@@ -567,14 +596,14 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0, 11, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 3, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -706,13 +735,43 @@ function library:window(props)
         flag = "theme",
         callback = function(val)
             local themes = {
-                ["default"] = {bg = Color3.fromRGB(30, 30, 30), sbar = Color3.fromRGB(25, 25, 25), text = Color3.fromRGB(220, 220, 220)},
-                ["light"] = {bg = Color3.fromRGB(240, 240, 240), sbar = Color3.fromRGB(220, 220, 220), text = Color3.fromRGB(30, 30, 30)},
-                ["amoled"] = {bg = Color3.fromRGB(0, 0, 0), sbar = Color3.fromRGB(10, 10, 10), text = Color3.fromRGB(255, 255, 255)}
+                ["default"] = {
+                    background = Color3.fromRGB(30, 30, 30),
+                    sidebar = Color3.fromRGB(25, 25, 25),
+                    accent = library.themes.preset.accent,
+                    text = Color3.fromRGB(220, 220, 220),
+                    placeholder = Color3.fromRGB(140, 140, 140),
+                    stroke = Color3.fromRGB(50, 50, 50),
+                    element_background = Color3.fromRGB(40, 40, 40),
+                    dropdown = Color3.fromRGB(35, 35, 35),
+                    highlight = Color3.fromRGB(40, 40, 40)
+                },
+                ["light"] = {
+                    background = Color3.fromRGB(240, 240, 240),
+                    sidebar = Color3.fromRGB(225, 225, 225),
+                    accent = library.themes.preset.accent,
+                    text = Color3.fromRGB(30, 30, 30),
+                    placeholder = Color3.fromRGB(120, 120, 120),
+                    stroke = Color3.fromRGB(200, 200, 200),
+                    element_background = Color3.fromRGB(230, 230, 230),
+                    dropdown = Color3.fromRGB(215, 215, 215),
+                    highlight = Color3.fromRGB(220, 220, 220)
+                },
+                ["amoled"] = {
+                    background = Color3.fromRGB(0, 0, 0),
+                    sidebar = Color3.fromRGB(10, 10, 10),
+                    accent = library.themes.preset.accent,
+                    text = Color3.fromRGB(255, 255, 255),
+                    placeholder = Color3.fromRGB(150, 150, 150),
+                    stroke = Color3.fromRGB(30, 30, 30),
+                    element_background = Color3.fromRGB(15, 15, 15),
+                    dropdown = Color3.fromRGB(20, 20, 20),
+                    highlight = Color3.fromRGB(15, 15, 15)
+                }
             }
             for name, data in pairs(cfg.custom_themes) do themes[name] = data end
             if themes[val] then
-                self:change_background(themes[val].bg)
+                library:change_theme(themes[val])
             end
         end
     })
@@ -808,7 +867,7 @@ function library:window(props)
 
     local other_section = cfg.settings_tab:section({ name = "other" })
     other_section:toggle({
-        name = "auto execute on teleport",
+        name = "auto execute",
         default = false,
         flag = "auto_exec",
         callback = function(val)
@@ -848,6 +907,12 @@ function library:window(props)
             end
         end
     end
+
+    task.defer(function()
+        if not library.is_loading then
+            main_frame.Visible = true
+        end
+    end)
 
     return setmetatable(cfg, { __index = self })
 end
@@ -1686,7 +1751,7 @@ function library:slider(props)
     local fill = self:create("Frame", {
         Name = "fill",
         Parent = track,
-        Size = UDim2.new(0.5, 0, 1, 0),
+        Size = UDim2.new(0.5, 7, 1, 0),
         BackgroundColor3 = self.themes.preset.accent,
         BorderSizePixel = 0,
         ClipsDescendants = false
@@ -1695,9 +1760,9 @@ function library:slider(props)
 
     local knob = self:create("Frame", {
         Name = "knob",
-        Parent = fill,
+        Parent = track,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(1, 0, 0.5, 0),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
         Size = UDim2.new(0, 14, 0, 14),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0,
@@ -1719,11 +1784,13 @@ function library:slider(props)
         cfg.value = val
         library.flags[cfg.flag] = val
         val_label.Text = tostring(val)
-        local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
         
-        local target_fill_size = UDim2.new(percent, 0, 1, 0)
+        local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
+        local target_fill_size = UDim2.new(percent, 14 - 14 * percent, 1, 0)
+        local target_knob_pos = UDim2.new(percent, 7 - 14 * percent, 0.5, 0)
         
         tween_service:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = target_fill_size}):Play()
+        tween_service:Create(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_knob_pos}):Play()
         
         if type(cfg.callback) == "function" then cfg.callback(val) end
     end
@@ -1946,12 +2013,15 @@ function library:colorpicker(props)
     local function update_popup_pos()
         local btn_pos = cp_btn.AbsolutePosition
         local btn_size = cp_btn.AbsoluteSize
-        -- Spawn it perfectly to the left of the button, or right if it doesn't fit
-        local target_x = btn_pos.X - 230
+        local pop_size = popup.AbsoluteSize
+        if pop_size.X == 0 then pop_size = Vector2.new(220, 220) end
+        
+        local target_x = btn_pos.X - pop_size.X - 8
         if target_x < 10 then
-            target_x = btn_pos.X + btn_size.X + 10
+            target_x = btn_pos.X + btn_size.X + 8
         end
-        local target_y = btn_pos.Y - 10
+        
+        local target_y = btn_pos.Y + (btn_size.Y / 2) - (pop_size.Y / 2)
         popup.Position = UDim2.new(0, target_x, 0, target_y)
     end
 
@@ -1961,7 +2031,7 @@ function library:colorpicker(props)
             local idx = table.find(library.active_popups, popup)
             if idx then table.remove(library.active_popups, idx) end
         else
-            library:close_popups() -- close others first
+            library:close_popups()
             update_popup_pos()
             popup.Visible = true
             table.insert(library.active_popups, popup)
