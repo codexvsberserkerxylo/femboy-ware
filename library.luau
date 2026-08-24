@@ -834,7 +834,9 @@ function library:window(props)
             if isfile(path) then
                 local data = http_service:JSONDecode(readfile(path))
                 for flag, val in next, data do
-                    if library.config_flags[flag] then library.config_flags[flag](val) end
+                    if type(library.config_flags[flag]) == "function" then 
+                        library.config_flags[flag](val) 
+                    end
                 end
                 self:notification({ text = "loaded config: " .. name })
             else
@@ -911,7 +913,9 @@ function library:window(props)
         if isfile(path) then
             local data = http_service:JSONDecode(readfile(path))
             for flag, val in next, data do
-                if library.config_flags[flag] then library.config_flags[flag](val) end
+                if type(library.config_flags[flag]) == "function" then 
+                    library.config_flags[flag](val) 
+                end
             end
         end
     end
@@ -990,8 +994,8 @@ function library:tab(props)
         Name = cfg.name .. "_page",
         Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
         BackgroundColor3 = self.themes.preset.background,
+        BorderSizePixel = 0,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0),
         ZIndex = 1
@@ -1346,17 +1350,17 @@ function library:toggle(props)
         name_label.Size = UDim2.new(1, -80, 1, 0)
         switch_bg.Position = UDim2.new(1, -72, 0, 6)
         
-        local dd_btn = library:create("ImageButton", {
+        local dd_btn = self:create("ImageButton", {
             Name = "options_dropdown",
             Parent = toggle_frame,
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -48, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
-            Image = library:get_icon("down"),
+            Image = self:get_icon("down"),
             ZIndex = 3
         })
 
-        local options_frame = library:create("Frame", {
+        local options_frame = self:create("Frame", {
             Name = cfg.name .. "_options",
             Parent = toggle_frame.Parent,
             Size = UDim2.new(1, 0, 0, 0),
@@ -1365,12 +1369,12 @@ function library:toggle(props)
             LayoutOrder = toggle_frame.LayoutOrder + 1
         })
 
-        local options_layout = library:create("UIListLayout", {
+        local options_layout = self:create("UIListLayout", {
             Parent = options_frame,
             Padding = UDim.new(0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
-        library:create("UIPadding", {
+        self:create("UIPadding", {
             Parent = options_frame,
             PaddingTop = UDim.new(0, 4),
             PaddingBottom = UDim.new(0, 4),
@@ -1379,7 +1383,7 @@ function library:toggle(props)
         })
 
         local expanded = false
-        library:connection(dd_btn.MouseButton1Click, function()
+        self:connection(dd_btn.MouseButton1Click, function()
             expanded = not expanded
             local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
             tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
@@ -1395,7 +1399,7 @@ function library:toggle(props)
         local options_env = setmetatable({
             holder = options_frame,
             elements = {}
-        }, { __index = library })
+        }, { __index = self })
 
         return options_env
     end
@@ -1443,17 +1447,17 @@ function library:button(props)
     function cfg:options()
         name_label.Size = UDim2.new(1, -40, 1, 0)
         
-        local dd_btn = library:create("ImageButton", {
+        local dd_btn = self:create("ImageButton", {
             Name = "options_dropdown",
             Parent = btn,
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -28, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
-            Image = library:get_icon("down"),
+            Image = self:get_icon("down"),
             ZIndex = 3
         })
 
-        local options_frame = library:create("Frame", {
+        local options_frame = self:create("Frame", {
             Name = cfg.name .. "_options",
             Parent = btn.Parent,
             Size = UDim2.new(1, 0, 0, 0),
@@ -1462,12 +1466,12 @@ function library:button(props)
             LayoutOrder = btn.LayoutOrder + 1
         })
 
-        local options_layout = library:create("UIListLayout", {
+        local options_layout = self:create("UIListLayout", {
             Parent = options_frame,
             Padding = UDim.new(0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
-        library:create("UIPadding", {
+        self:create("UIPadding", {
             Parent = options_frame,
             PaddingTop = UDim.new(0, 4),
             PaddingBottom = UDim.new(0, 4),
@@ -1476,7 +1480,7 @@ function library:button(props)
         })
 
         local expanded = false
-        library:connection(dd_btn.MouseButton1Click, function()
+        self:connection(dd_btn.MouseButton1Click, function()
             expanded = not expanded
             local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
             tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
@@ -1492,7 +1496,7 @@ function library:button(props)
         local options_env = setmetatable({
             holder = options_frame,
             elements = {}
-        }, { __index = library })
+        }, { __index = self })
 
         return options_env
     end
@@ -1554,34 +1558,18 @@ function library:keybind(props)
         TextScaled = true
     })
 
-    local function get_key_name(key)
-        if typeof(key) == "EnumItem" then
-            return key.Name
-        end
-        return tostring(key)
-    end
-
     local function bind_input(key)
-        if typeof(key) == "string" then
-            local k = Enum.KeyCode[key] or Enum.UserInputType[key]
-            if k then key = k else return end
+        if type(key) == "string" then
+            local enum_val = Enum.KeyCode[key]
+            if enum_val then key = enum_val else return end
         end
-        
         cfg.key = key
-        local key_name = get_key_name(key)
-        library.flags[cfg.flag] = key_name
-        bind_text.Text = key_name
-        
-        if cfg.conn then cfg.conn:Disconnect() end
+        library.flags[cfg.flag] = key.Name
+        bind_text.Text = key.Name
+        if cfg.conn and type(cfg.conn.Disconnect) == "function" then cfg.conn:Disconnect() end
         cfg.conn = uis.InputBegan:Connect(function(input, gpe)
             if gpe then return end
-            local pressed = false
-            if key.EnumType == Enum.KeyCode and input.KeyCode == key then
-                pressed = true
-            elseif key.EnumType == Enum.UserInputType and input.UserInputType == key then
-                pressed = true
-            end
-            if pressed then
+            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == key then
                 if type(cfg.callback) == "function" then cfg.callback() end
             end
         end)
@@ -1593,18 +1581,11 @@ function library:keybind(props)
         local conn
         conn = uis.InputBegan:Connect(function(input)
             if cfg.binding then
-                local valid_input = false
-                if input.UserInputType == Enum.UserInputType.Keyboard then
-                    valid_input = true
+                if input.UserInputType == Enum.UserInputType.Keyboard then 
                     bind_input(input.KeyCode)
-                elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
-                    valid_input = true
-                    bind_input(input.UserInputType)
                 end
-                if valid_input then
-                    cfg.binding = false
-                    if conn then conn:Disconnect() end
-                end
+                cfg.binding = false
+                if conn and type(conn.Disconnect) == "function" then conn:Disconnect() end
             end
         end)
     end)
@@ -1614,7 +1595,7 @@ function library:keybind(props)
         bind_input(val)
     end
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:dropdown(props)
@@ -1846,7 +1827,7 @@ function library:textbox(props)
         end
     end
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:slider(props)
@@ -1964,7 +1945,7 @@ function library:slider(props)
     cfg.set(cfg.default)
     library.config_flags[cfg.flag] = cfg.set
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:colorpicker(props)
@@ -2235,7 +2216,7 @@ function library:colorpicker(props)
     update_color()
     library.config_flags[cfg.flag] = function(val) cfg.set(val) end
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:notification(props)
