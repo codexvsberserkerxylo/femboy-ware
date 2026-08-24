@@ -982,6 +982,7 @@ function library:tab(props)
         Name = cfg.name .. "_page",
         Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = self.themes.preset.background,
         BackgroundTransparency = 1,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0),
@@ -1268,7 +1269,8 @@ function library:toggle(props)
         name = props.name or "toggle",
         default = props.default or false,
         flag = props.flag or props.name or "toggle_"..tostring(math.random(1, 100000)),
-        callback = props.callback or function() end
+        callback = props.callback or function() end,
+        options = props.options or {}
     }
 
     local toggle_frame = self:create("TextButton", {
@@ -1291,10 +1293,86 @@ function library:toggle(props)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
+    local switch_bg_pos_x = -42
+    if cfg.options.keybind then
+        switch_bg_pos_x = -82
+        local bind_btn = self:create("TextButton", {
+            Name = "bind",
+            Parent = toggle_frame,
+            Position = UDim2.new(1, -82, 0, 6),
+            Size = UDim2.new(0, 36, 0, 20),
+            BackgroundColor3 = self.themes.preset.dropdown,
+            Text = "...",
+            Font = Enum.Font.Gotham,
+            TextColor3 = self.themes.preset.placeholder,
+            TextSize = 12,
+            BorderSizePixel = 0,
+            AutoButtonColor = false
+        })
+        self:create("UICorner", { Parent = bind_btn, CornerRadius = UDim.new(0, 4) })
+        
+        local function toggle_bind_input(key)
+            if typeof(key) == "string" then
+                local k = Enum.KeyCode[key] or Enum.UserInputType[key]
+                if k then key = k else return end
+            end
+            cfg.key = key
+            local key_name = "None"
+            if key ~= Enum.KeyCode.Unknown then
+                key_name = key.Name
+            end
+            bind_btn.Text = key_name
+            library.flags[cfg.flag.."_key"] = key_name
+            
+            if cfg.bind_conn then cfg.bind_conn:Disconnect() end
+            if key == Enum.KeyCode.Unknown then return end
+            
+            cfg.bind_conn = uis.InputBegan:Connect(function(input, gpe)
+                if gpe then return end
+                local pressed = false
+                if key.EnumType == Enum.KeyCode and input.KeyCode == key then
+                    pressed = true
+                elseif key.EnumType == Enum.UserInputType and input.UserInputType == key then
+                    pressed = true
+                end
+                if pressed then
+                    cfg.set(not cfg.value)
+                end
+            end)
+        end
+        
+        self:connection(bind_btn.MouseButton1Click, function()
+            bind_btn.Text = "..."
+            cfg.binding = true
+            local conn
+            conn = uis.InputBegan:Connect(function(input)
+                if cfg.binding then
+                    local valid_input = false
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        valid_input = true
+                        toggle_bind_input(input.KeyCode)
+                    elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
+                        valid_input = true
+                        toggle_bind_input(input.UserInputType)
+                    end
+                    if valid_input then
+                        cfg.binding = false
+                        if conn then conn:Disconnect() end
+                    end
+                end
+            end)
+        end)
+        
+        toggle_bind_input(Enum.KeyCode.Unknown)
+        library.config_flags[cfg.flag.."_key"] = function(val)
+            toggle_bind_input(val)
+        end
+    end
+    
     local switch_bg = self:create("Frame", {
         Name = "switch",
         Parent = toggle_frame,
-        Position = UDim2.new(1, -42, 0, 6),
+        Position = UDim2.new(1, switch_bg_pos_x, 0, 6),
         Size = UDim2.new(0, 36, 0, 20),
         BackgroundColor3 = self.themes.preset.dropdown,
         BorderSizePixel = 0
@@ -1426,18 +1504,34 @@ function library:keybind(props)
         TextScaled = true
     })
 
-    local function bind_input(key)
-        if type(key) == "string" then
-            local enum_val = Enum.KeyCode[key]
-            if enum_val then key = enum_val else return end
+    local function get_key_name(key)
+        if typeof(key) == "EnumItem" then
+            return key.Name
         end
+        return tostring(key)
+    end
+
+    local function bind_input(key)
+        if typeof(key) == "string" then
+            local k = Enum.KeyCode[key] or Enum.UserInputType[key]
+            if k then key = k else return end
+        end
+        
         cfg.key = key
-        library.flags[cfg.flag] = key.Name
-        bind_text.Text = key.Name
-        if cfg.conn and type(cfg.conn.Disconnect) == "function" then cfg.conn:Disconnect() end
+        local key_name = get_key_name(key)
+        library.flags[cfg.flag] = key_name
+        bind_text.Text = key_name
+        
+        if cfg.conn then cfg.conn:Disconnect() end
         cfg.conn = uis.InputBegan:Connect(function(input, gpe)
             if gpe then return end
-            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == key then
+            local pressed = false
+            if key.EnumType == Enum.KeyCode and input.KeyCode == key then
+                pressed = true
+            elseif key.EnumType == Enum.UserInputType and input.UserInputType == key then
+                pressed = true
+            end
+            if pressed then
                 if type(cfg.callback) == "function" then cfg.callback() end
             end
         end)
@@ -1449,11 +1543,18 @@ function library:keybind(props)
         local conn
         conn = uis.InputBegan:Connect(function(input)
             if cfg.binding then
-                if input.UserInputType == Enum.UserInputType.Keyboard then 
+                local valid_input = false
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    valid_input = true
                     bind_input(input.KeyCode)
+                elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
+                    valid_input = true
+                    bind_input(input.UserInputType)
                 end
-                cfg.binding = false
-                if conn and type(conn.Disconnect) == "function" then conn:Disconnect() end
+                if valid_input then
+                    cfg.binding = false
+                    if conn then conn:Disconnect() end
+                end
             end
         end)
     end)
