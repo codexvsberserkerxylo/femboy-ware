@@ -653,6 +653,14 @@ function library:window(props)
         end
     })
 
+    library.button(info_section, {
+        name = "copy jobid",
+        callback = function()
+            setclipboard(game.JobId)
+            self:notification({ text = "job id copied to clipboard!" })
+        end
+    })
+
     task.spawn(function()
         while true do
             local ok3, ping = pcall(function() return player:GetNetworkPing() end)
@@ -983,6 +991,7 @@ function library:tab(props)
         Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
+        BackgroundColor3 = self.themes.preset.background,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0),
         ZIndex = 1
@@ -1545,18 +1554,34 @@ function library:keybind(props)
         TextScaled = true
     })
 
-    local function bind_input(key)
-        if type(key) == "string" then
-            local enum_val = Enum.KeyCode[key]
-            if enum_val then key = enum_val else return end
+    local function get_key_name(key)
+        if typeof(key) == "EnumItem" then
+            return key.Name
         end
+        return tostring(key)
+    end
+
+    local function bind_input(key)
+        if typeof(key) == "string" then
+            local k = Enum.KeyCode[key] or Enum.UserInputType[key]
+            if k then key = k else return end
+        end
+        
         cfg.key = key
-        library.flags[cfg.flag] = key.Name
-        bind_text.Text = key.Name
-        if cfg.conn and type(cfg.conn.Disconnect) == "function" then cfg.conn:Disconnect() end
+        local key_name = get_key_name(key)
+        library.flags[cfg.flag] = key_name
+        bind_text.Text = key_name
+        
+        if cfg.conn then cfg.conn:Disconnect() end
         cfg.conn = uis.InputBegan:Connect(function(input, gpe)
             if gpe then return end
-            if input.UserInputType == Enum.UserInputType.Keyboard and input.KeyCode == key then
+            local pressed = false
+            if key.EnumType == Enum.KeyCode and input.KeyCode == key then
+                pressed = true
+            elseif key.EnumType == Enum.UserInputType and input.UserInputType == key then
+                pressed = true
+            end
+            if pressed then
                 if type(cfg.callback) == "function" then cfg.callback() end
             end
         end)
@@ -1568,11 +1593,18 @@ function library:keybind(props)
         local conn
         conn = uis.InputBegan:Connect(function(input)
             if cfg.binding then
-                if input.UserInputType == Enum.UserInputType.Keyboard then 
+                local valid_input = false
+                if input.UserInputType == Enum.UserInputType.Keyboard then
+                    valid_input = true
                     bind_input(input.KeyCode)
+                elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
+                    valid_input = true
+                    bind_input(input.UserInputType)
                 end
-                cfg.binding = false
-                if conn and type(conn.Disconnect) == "function" then conn:Disconnect() end
+                if valid_input then
+                    cfg.binding = false
+                    if conn then conn:Disconnect() end
+                end
             end
         end)
     end)
