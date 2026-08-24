@@ -596,14 +596,14 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = UDim2.new(0, 11, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 3, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -645,11 +645,19 @@ function library:window(props)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported)
     
-    library.button(info_section, {
+    info_section:button({
         name = "join discord",
         callback = function()
             setclipboard(cfg.discord_link)
             self:notification({ text = "discord link copied to clipboard!" })
+        end
+    })
+
+    info_section:button({
+        name = "copy jobid",
+        callback = function()
+            setclipboard(game.JobId)
+            self:notification({ text = "job id copied to clipboard!" })
         end
     })
 
@@ -803,7 +811,7 @@ function library:window(props)
     local config_section = cfg.settings_tab:section({ name = "configs" })
     local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
 
-    library.button(config_section, { 
+    config_section:button({ 
         name = "save config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -817,7 +825,7 @@ function library:window(props)
         end 
     })
 
-    library.button(config_section, { 
+    config_section:button({ 
         name = "load config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -835,7 +843,7 @@ function library:window(props)
         end 
     })
 
-    library.button(config_section, { 
+    config_section:button({ 
         name = "delete config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -1338,17 +1346,17 @@ function library:toggle(props)
         name_label.Size = UDim2.new(1, -80, 1, 0)
         switch_bg.Position = UDim2.new(1, -72, 0, 6)
         
-        local dd_btn = self:create("ImageButton", {
+        local dd_btn = library:create("ImageButton", {
             Name = "options_dropdown",
             Parent = toggle_frame,
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -48, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
-            Image = self:get_icon("down"),
+            Image = library:get_icon("down"),
             ZIndex = 3
         })
 
-        local options_frame = self:create("Frame", {
+        local options_frame = library:create("Frame", {
             Name = cfg.name .. "_options",
             Parent = toggle_frame.Parent,
             Size = UDim2.new(1, 0, 0, 0),
@@ -1357,12 +1365,12 @@ function library:toggle(props)
             LayoutOrder = toggle_frame.LayoutOrder + 1
         })
 
-        local options_layout = self:create("UIListLayout", {
+        local options_layout = library:create("UIListLayout", {
             Parent = options_frame,
             Padding = UDim.new(0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
-        self:create("UIPadding", {
+        library:create("UIPadding", {
             Parent = options_frame,
             PaddingTop = UDim.new(0, 4),
             PaddingBottom = UDim.new(0, 4),
@@ -1371,7 +1379,7 @@ function library:toggle(props)
         })
 
         local expanded = false
-        self:connection(dd_btn.MouseButton1Click, function()
+        library:connection(dd_btn.MouseButton1Click, function()
             expanded = not expanded
             local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
             tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
@@ -1387,7 +1395,7 @@ function library:toggle(props)
         local options_env = setmetatable({
             holder = options_frame,
             elements = {}
-        }, { __index = self })
+        }, { __index = library })
 
         return options_env
     end
@@ -1435,17 +1443,17 @@ function library:button(props)
     function cfg:options()
         name_label.Size = UDim2.new(1, -40, 1, 0)
         
-        local dd_btn = self:create("ImageButton", {
+        local dd_btn = library:create("ImageButton", {
             Name = "options_dropdown",
             Parent = btn,
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -28, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
-            Image = self:get_icon("down"),
+            Image = library:get_icon("down"),
             ZIndex = 3
         })
 
-        local options_frame = self:create("Frame", {
+        local options_frame = library:create("Frame", {
             Name = cfg.name .. "_options",
             Parent = btn.Parent,
             Size = UDim2.new(1, 0, 0, 0),
@@ -1454,12 +1462,12 @@ function library:button(props)
             LayoutOrder = btn.LayoutOrder + 1
         })
 
-        local options_layout = self:create("UIListLayout", {
+        local options_layout = library:create("UIListLayout", {
             Parent = options_frame,
             Padding = UDim.new(0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
-        self:create("UIPadding", {
+        library:create("UIPadding", {
             Parent = options_frame,
             PaddingTop = UDim.new(0, 4),
             PaddingBottom = UDim.new(0, 4),
@@ -1468,7 +1476,7 @@ function library:button(props)
         })
 
         local expanded = false
-        self:connection(dd_btn.MouseButton1Click, function()
+        library:connection(dd_btn.MouseButton1Click, function()
             expanded = not expanded
             local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
             tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
@@ -1484,7 +1492,7 @@ function library:button(props)
         local options_env = setmetatable({
             holder = options_frame,
             elements = {}
-        }, { __index = self })
+        }, { __index = library })
 
         return options_env
     end
@@ -1787,7 +1795,7 @@ function library:dropdown(props)
     if cfg.default then cfg.set(cfg.default) end
     library.config_flags[cfg.flag] = cfg.set
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:textbox(props)
