@@ -9,7 +9,7 @@ local window = library:window({
     subtitle = " - im a subtitle", 
     size = UDim2.new(0, 650, 0, 450),
     icon = "moon",
-    discord_link = "discord.gg/n6SzrKpVnU",
+    discord_link = "discord.gg/example",
     script_url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/refs/heads/main/example.luau"
 })
 
