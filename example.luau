@@ -5,15 +5,15 @@ local uis = game:GetService("UserInputService")
 local player = players.LocalPlayer
 
 local window = library:window({ 
-    title = "Lunar X", 
-    subtitle = " - mm2", 
+    title = "example", 
+    subtitle = " - im a subtitle", 
     size = UDim2.new(0, 650, 0, 450),
     icon = "moon",
     discord_link = "discord.gg/n6SzrKpVnU",
-    script_url = "https://raw.githubusercontent.com/codexvsberserkerxylo/scripts/refs/heads/main/mm2.luau"
+    script_url = "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/refs/heads/main/example.luau"
 })
 
-library:loading_screen({ text = "loading lunar x...", duration = 3, size = window.size })
+library:loading_screen({ text = "loading...", duration = 3, size = window.size })
 
 local combat_tab = window:tab({ name = "combat", icon = "swords", search = true })
 local aimbot_section = combat_tab:section({ name = "aimbot" })
