@@ -1877,6 +1877,7 @@ function library:colorpicker(props)
         AutoButtonColor = false
     })
     self:create("UICorner", { Parent = sv_box, CornerRadius = UDim.new(0, 4) })
+
     local white_frame = self:create("Frame", {
         Parent = sv_box,
         Size = UDim2.new(1, 0, 1, 0),
@@ -1886,18 +1887,25 @@ function library:colorpicker(props)
     })
     self:create("UIGradient", {
         Parent = white_frame,
-        Transparency = NumberSequence.new(1, 0)
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(1, 0)
+        })
     })
+
     local black_frame = self:create("Frame", {
-        Parent = white_frame,
+        Parent = sv_box,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = Color3.new(0, 0, 0),
         BorderSizePixel = 0,
-        ZIndex = 102
+        ZIndex = 103
     })
     self:create("UIGradient", {
         Parent = black_frame,
-        Transparency = NumberSequence.new(1,0),
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1)
+        }),
         Rotation = 90
     })
 
@@ -1907,10 +1915,10 @@ function library:colorpicker(props)
         Size = UDim2.new(0, 8, 0, 8),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
         BorderSizePixel = 0,
-        ZIndex = 103
+        ZIndex = 104
     })
     self:create("UICorner", { Parent = sv_cursor, CornerRadius = UDim.new(1, 0) })
-    self:create("UIStroke", { Parent = sv_cursor, Color = Color3.fromRGB(0, 0, 0), Thickness = 1, ZIndex = 103 })
+    self:create("UIStroke", { Parent = sv_cursor, Color = Color3.fromRGB(0, 0, 0), Thickness = 1, ZIndex = 104 })
 
     local hue_bar = self:create("TextButton", {
         Parent = popup,
@@ -1978,28 +1986,48 @@ function library:colorpicker(props)
     local dragging_sv = false
     local dragging_hue = false
 
-    self:connection(sv_box.MouseButton1Down, function() dragging_sv = true end)
-    self:connection(uis.InputEnded, function(input) 
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then 
-            dragging_sv = false 
-            dragging_hue = false 
-        end 
-    end)
-    self:connection(uis.InputChanged, function(input)
-        if dragging_sv then
+    self:connection(sv_box.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging_sv = true
             local rel_x = math.clamp((input.Position.X - sv_box.AbsolutePosition.X) / sv_box.AbsoluteSize.X, 0, 1)
             local rel_y = math.clamp((input.Position.Y - sv_box.AbsolutePosition.Y) / sv_box.AbsoluteSize.Y, 0, 1)
             s = rel_x
             v = 1 - rel_y
             update_color()
-        elseif dragging_hue then
+        end
+    end)
+
+    self:connection(hue_bar.InputBegan, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging_hue = true
             local rel_x = math.clamp((input.Position.X - hue_bar.AbsolutePosition.X) / hue_bar.AbsoluteSize.X, 0, 1)
             h = rel_x
             update_color()
         end
     end)
 
-    self:connection(hue_bar.MouseButton1Down, function() dragging_hue = true end)
+    self:connection(uis.InputEnded, function(input) 
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then 
+            dragging_sv = false 
+            dragging_hue = false 
+        end 
+    end)
+
+    self:connection(uis.InputChanged, function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            if dragging_sv then
+                local rel_x = math.clamp((input.Position.X - sv_box.AbsolutePosition.X) / sv_box.AbsoluteSize.X, 0, 1)
+                local rel_y = math.clamp((input.Position.Y - sv_box.AbsolutePosition.Y) / sv_box.AbsoluteSize.Y, 0, 1)
+                s = rel_x
+                v = 1 - rel_y
+                update_color()
+            elseif dragging_hue then
+                local rel_x = math.clamp((input.Position.X - hue_bar.AbsolutePosition.X) / hue_bar.AbsoluteSize.X, 0, 1)
+                h = rel_x
+                update_color()
+            end
+        end
+    end)
 
     self:connection(hex_box.FocusLost, function()
         local color = hex_to_color(hex_box.Text)
@@ -2054,12 +2082,12 @@ function library:colorpicker(props)
     end
 
     update_color()
-    library.config_flags[cfg.flag] = function(val) cfg.set(val) end
-    if self.elements then table.insert(self.elements, cfg) end
-    return cfg
-end
+        library.config_flags[cfg.flag] = function(val) cfg.set(val) end
+        if self.elements then table.insert(self.elements, cfg) end
+        return cfg
+    end
 
-function library:notification(props)
+    function library:notification(props)
     local cfg = {
         text = props.text or "notification",
         duration = props.duration or 3
