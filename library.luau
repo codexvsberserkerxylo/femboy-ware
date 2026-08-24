@@ -1264,6 +1264,138 @@ function library:section(props)
     return setmetatable(cfg, { __index = self })
 end
 
+function library:toggle(props)
+    local cfg = {
+        name = props.name or "toggle",
+        default = props.default or false,
+        flag = props.flag or props.name or "toggle_"..tostring(math.random(1, 100000)),
+        callback = props.callback or function() end
+    }
+
+    local toggle_frame = self:create("TextButton", {
+        Name = cfg.name,
+        Parent = self.holder,
+        Size = UDim2.new(1, 0, 0, 32),
+        BackgroundTransparency = 1,
+        Text = "",
+        AutoButtonColor = false
+    })
+    
+    local name_label = self:create("TextLabel", {
+        Name = "name",
+        Parent = toggle_frame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 0),
+        Size = UDim2.new(1, -50, 1, 0),
+        Font = Enum.Font.Gotham,
+        Text = cfg.name,
+        TextColor3 = self.themes.preset.text,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    local switch_bg = self:create("Frame", {
+        Name = "switch",
+        Parent = toggle_frame,
+        Position = UDim2.new(1, -42, 0, 6),
+        Size = UDim2.new(0, 36, 0, 20),
+        BackgroundColor3 = self.themes.preset.dropdown,
+        BorderSizePixel = 0
+    })
+    self:create("UICorner", { Parent = switch_bg, CornerRadius = UDim.new(1, 0) })
+
+    local switch_dot = self:create("Frame", {
+        Name = "dot",
+        Parent = switch_bg,
+        Position = UDim2.new(0, 3, 0, 3),
+        Size = UDim2.new(0, 14, 0, 14),
+        BackgroundColor3 = self.themes.preset.text,
+        BorderSizePixel = 0
+    })
+    self:create("UICorner", { Parent = switch_dot, CornerRadius = UDim.new(1, 0) })
+
+    function cfg.set(val)
+        cfg.value = val
+        library.flags[cfg.flag] = val
+        local color = val and self.themes.preset.accent or self.themes.preset.dropdown
+        local pos = val and UDim2.new(1, -17, 0, 3) or UDim2.new(0, 3, 0, 3)
+        tween_service:Create(switch_bg, TweenInfo.new(0.2), { BackgroundColor3 = color }):Play()
+        tween_service:Create(switch_dot, TweenInfo.new(0.2), { Position = pos }):Play()
+        if val then
+            table.insert(library.active_toggles, switch_bg)
+        else
+            local idx = table.find(library.active_toggles, switch_bg)
+            if idx then table.remove(library.active_toggles, idx) end
+        end
+        if type(cfg.callback) == "function" then cfg.callback(val) end
+    end
+
+    self:connection(toggle_frame.MouseButton1Click, function() cfg.set(not cfg.value) end)
+    cfg.set(cfg.default)
+    library.config_flags[cfg.flag] = cfg.set
+    
+    function cfg:options()
+        name_label.Size = UDim2.new(1, -80, 1, 0)
+        switch_bg.Position = UDim2.new(1, -72, 0, 6)
+        
+        local dd_btn = self:create("ImageButton", {
+            Name = "options_dropdown",
+            Parent = toggle_frame,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -48, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            Image = self:get_icon("down"),
+            ZIndex = 3
+        })
+
+        local options_frame = self:create("Frame", {
+            Name = cfg.name .. "_options",
+            Parent = toggle_frame.Parent,
+            Size = UDim2.new(1, 0, 0, 0),
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            LayoutOrder = toggle_frame.LayoutOrder + 1
+        })
+
+        local options_layout = self:create("UIListLayout", {
+            Parent = options_frame,
+            Padding = UDim.new(0, 8),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        self:create("UIPadding", {
+            Parent = options_frame,
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 20),
+            PaddingRight = UDim.new(0, 0)
+        })
+
+        local expanded = false
+        self:connection(dd_btn.MouseButton1Click, function()
+            expanded = not expanded
+            local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
+            tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
+            tween_service:Create(dd_btn, TweenInfo.new(0.3), {Rotation = expanded and 180 or 0}):Play()
+        end)
+
+        options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if expanded then
+                options_frame.Size = UDim2.new(1, 0, 0, options_layout.AbsoluteContentSize.Y + 8)
+            end
+        end)
+
+        local options_env = setmetatable({
+            holder = options_frame,
+            elements = {}
+        }, { __index = self })
+
+        return options_env
+    end
+    
+    if self.elements then table.insert(self.elements, cfg) end
+    return setmetatable(cfg, { __index = self })
+end
+
 function library:button(props)
     local cfg = {
         name = props.name or "button",
