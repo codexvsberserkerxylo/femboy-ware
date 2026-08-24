@@ -645,7 +645,7 @@ function library:window(props)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported)
     
-    info_section:button({
+    library.button(info_section, {
         name = "join discord",
         callback = function()
             setclipboard(cfg.discord_link)
@@ -811,18 +811,7 @@ function library:window(props)
     local config_section = cfg.settings_tab:section({ name = "configs" })
     local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
 
-    local function refresh_configs()
-        if not isfolder(library.directory .. "/configs") then makefolder(library.directory .. "/configs") end
-        local files = listfiles(library.directory .. "/configs")
-        local names = {}
-        for _, file in next, files do
-            local name = file:match("([^/\\]+)%.json$")
-            if name then table.insert(names, name) end
-        end
-        if config_section.config_dd then config_section.config_dd:refresh(names) end
-    end
-
-    config_section:button({ 
+    library.button(config_section, { 
         name = "save config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -832,11 +821,11 @@ function library:window(props)
             local path = self.directory .. "/configs/" .. name .. ".json"
             writefile(path, http_service:JSONEncode(config_data))
             self:notification({ text = "saved config: " .. name })
-            refresh_configs()
+            config_section:refresh_configs()
         end 
     })
 
-    config_section:button({ 
+    library.button(config_section, { 
         name = "load config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -845,9 +834,7 @@ function library:window(props)
             if isfile(path) then
                 local data = http_service:JSONDecode(readfile(path))
                 for flag, val in next, data do
-                    if type(library.config_flags[flag]) == "function" then 
-                        library.config_flags[flag](val) 
-                    end
+                    if library.config_flags[flag] then library.config_flags[flag](val) end
                 end
                 self:notification({ text = "loaded config: " .. name })
             else
@@ -856,7 +843,7 @@ function library:window(props)
         end 
     })
 
-    config_section:button({ 
+    library.button(config_section, { 
         name = "delete config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -865,7 +852,7 @@ function library:window(props)
             if isfile(path) then
                 delfile(path)
                 self:notification({ text = "deleted config: " .. name })
-                refresh_configs()
+                config_section:refresh_configs()
             else
                 self:notification({ text = "config not found!" })
             end
@@ -900,12 +887,23 @@ function library:window(props)
         end
     })
 
+    function config_section:refresh_configs()
+        if not isfolder(library.directory .. "/configs") then makefolder(library.directory .. "/configs") end
+        local files = listfiles(library.directory .. "/configs")
+        local names = {}
+        for _, file in next, files do
+            local name = file:match("([^/\\]+)%.json$")
+            if name then table.insert(names, name) end
+        end
+        if config_section.config_dd then config_section.config_dd:refresh(names) end
+    end
+
     config_section.config_dd = config_section:dropdown({ 
         name = "saved configs", 
         options = {}, 
         callback = function(val) config_name_input.instance.Text = val end
     })
-    refresh_configs()
+    config_section:refresh_configs()
 
     if isfile(library.directory .. "/autoload.txt") then
         local name = readfile(library.directory .. "/autoload.txt")
@@ -913,9 +911,7 @@ function library:window(props)
         if isfile(path) then
             local data = http_service:JSONDecode(readfile(path))
             for flag, val in next, data do
-                if type(library.config_flags[flag]) == "function" then 
-                    library.config_flags[flag](val) 
-                end
+                if library.config_flags[flag] then library.config_flags[flag](val) end
             end
         end
     end
@@ -994,8 +990,8 @@ function library:tab(props)
         Name = cfg.name .. "_page",
         Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
         BackgroundColor3 = self.themes.preset.background,
-        BorderSizePixel = 0,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0),
         ZIndex = 1
@@ -1390,7 +1386,7 @@ function library:toggle(props)
             tween_service:Create(dd_btn, TweenInfo.new(0.3), {Rotation = expanded and 180 or 0}):Play()
         end)
 
-        options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        self:connection(options_layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
             if expanded then
                 options_frame.Size = UDim2.new(1, 0, 0, options_layout.AbsoluteContentSize.Y + 8)
             end
@@ -1487,7 +1483,7 @@ function library:button(props)
             tween_service:Create(dd_btn, TweenInfo.new(0.3), {Rotation = expanded and 180 or 0}):Play()
         end)
 
-        options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        self:connection(options_layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
             if expanded then
                 options_frame.Size = UDim2.new(1, 0, 0, options_layout.AbsoluteContentSize.Y + 8)
             end
