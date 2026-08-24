@@ -645,7 +645,7 @@ function library:window(props)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported)
     
-    info_section:button({
+    info_section.button({
         name = "join discord",
         callback = function()
             setclipboard(cfg.discord_link)
@@ -653,7 +653,7 @@ function library:window(props)
         end
     })
 
-    info_section:button({
+    info_section.button({
         name = "copy jobid",
         callback = function()
             setclipboard(game.JobId)
