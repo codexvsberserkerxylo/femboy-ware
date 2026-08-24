@@ -1350,17 +1350,17 @@ function library:toggle(props)
         name_label.Size = UDim2.new(1, -80, 1, 0)
         switch_bg.Position = UDim2.new(1, -72, 0, 6)
         
-        local dd_btn = self:create("ImageButton", {
+        local dd_btn = library:create("ImageButton", {
             Name = "options_dropdown",
             Parent = toggle_frame,
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -48, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
-            Image = self:get_icon("down"),
+            Image = library:get_icon("down"),
             ZIndex = 3
         })
 
-        local options_frame = self:create("Frame", {
+        local options_frame = library:create("Frame", {
             Name = cfg.name .. "_options",
             Parent = toggle_frame.Parent,
             Size = UDim2.new(1, 0, 0, 0),
@@ -1369,12 +1369,12 @@ function library:toggle(props)
             LayoutOrder = toggle_frame.LayoutOrder + 1
         })
 
-        local options_layout = self:create("UIListLayout", {
+        local options_layout = library:create("UIListLayout", {
             Parent = options_frame,
             Padding = UDim.new(0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
-        self:create("UIPadding", {
+        library:create("UIPadding", {
             Parent = options_frame,
             PaddingTop = UDim.new(0, 4),
             PaddingBottom = UDim.new(0, 4),
@@ -1383,7 +1383,7 @@ function library:toggle(props)
         })
 
         local expanded = false
-        self:connection(dd_btn.MouseButton1Click, function()
+        library:connection(dd_btn.MouseButton1Click, function()
             expanded = not expanded
             local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
             tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
@@ -1399,7 +1399,7 @@ function library:toggle(props)
         local options_env = setmetatable({
             holder = options_frame,
             elements = {}
-        }, { __index = self })
+        }, { __index = library })
 
         return options_env
     end
@@ -1447,17 +1447,17 @@ function library:button(props)
     function cfg:options()
         name_label.Size = UDim2.new(1, -40, 1, 0)
         
-        local dd_btn = self:create("ImageButton", {
+        local dd_btn = library:create("ImageButton", {
             Name = "options_dropdown",
             Parent = btn,
             BackgroundTransparency = 1,
             Position = UDim2.new(1, -28, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
-            Image = self:get_icon("down"),
+            Image = library:get_icon("down"),
             ZIndex = 3
         })
 
-        local options_frame = self:create("Frame", {
+        local options_frame = library:create("Frame", {
             Name = cfg.name .. "_options",
             Parent = btn.Parent,
             Size = UDim2.new(1, 0, 0, 0),
@@ -1466,12 +1466,12 @@ function library:button(props)
             LayoutOrder = btn.LayoutOrder + 1
         })
 
-        local options_layout = self:create("UIListLayout", {
+        local options_layout = library:create("UIListLayout", {
             Parent = options_frame,
             Padding = UDim.new(0, 8),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
-        self:create("UIPadding", {
+        library:create("UIPadding", {
             Parent = options_frame,
             PaddingTop = UDim.new(0, 4),
             PaddingBottom = UDim.new(0, 4),
@@ -1480,7 +1480,7 @@ function library:button(props)
         })
 
         local expanded = false
-        self:connection(dd_btn.MouseButton1Click, function()
+        library:connection(dd_btn.MouseButton1Click, function()
             expanded = not expanded
             local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
             tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
@@ -1496,7 +1496,7 @@ function library:button(props)
         local options_env = setmetatable({
             holder = options_frame,
             elements = {}
-        }, { __index = self })
+        }, { __index = library })
 
         return options_env
     end
