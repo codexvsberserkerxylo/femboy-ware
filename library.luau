@@ -33,7 +33,7 @@ local library = {
     accent_elements = {},
     background_elements = {},
     active_toggles = {},
-    active_notifs = {},
+    active_notifs = [],
     current_tab = nil,
     directory = "Femboy-Ware",
     drag_speed = 0.08,
@@ -182,13 +182,13 @@ local function parse_markdown(md)
             html = html .. "<br/>"
         elseif not in_code then
             if string.sub(line, 1, 3) == "-# " then
-                html = html .. '<font size="13" color="#6a6a6a"><b>' .. string.sub(line, 4) .. '</b></font><br/>'
+                html = html .. '<font size="11" color="#6a6a6a">' .. string.sub(line, 4) .. '</font><br/>'
             elseif string.sub(line, 1, 4) == "### " then
-                html = html .. '<font size="14" color="#9a9a9a"><b>' .. string.sub(line, 5) .. '</b></font><br/>'
+                html = html .. '<font size="13" color="#9a9a9a"><b>' .. string.sub(line, 5) .. '</b></font><br/>'
             elseif string.sub(line, 1, 3) == "## " then
-                html = html .. '<font size="15" color="#9a9a9a"><b>' .. string.sub(line, 4) .. '</b></font><br/>'
+                html = html .. '<font size="14" color="#9a9a9a"><b>' .. string.sub(line, 4) .. '</b></font><br/>'
             elseif string.sub(line, 1, 2) == "# " then
-                html = html .. '<font size="18" color="#ffffff"><b>' .. string.sub(line, 3) .. '</b></font><br/>'
+                html = html .. '<font size="16" color="#ffffff"><b>' .. string.sub(line, 3) .. '</b></font><br/>'
             elseif string.sub(line, 1, 2) == "- " or string.sub(line, 1, 2) == "* " then
                 html = html .. '• ' .. string.sub(line, 3) .. '<br/>'
             else
@@ -305,7 +305,8 @@ function library:window(props)
         discord_link = props.discord_link or "https://discord.gg/yourserver",
         supported_executors = props.supported_executors or {"xeno", "velocity", "solara", "synz", "potassium", "volt", "cosmic", "wave", "madium", "real", "sirhurt", "delta", "codex"},
         changelog_url = props.changelog_url or "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/changelog.md",
-        script_url = props.script_url or "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/example.luau"
+        script_url = props.script_url or "https://raw.githubusercontent.com/codexvsberserkerxylo/femboy-ware/main/example.luau",
+        custom_themes = props.themes or {}
     }
 
     self.gui = self:create("ScreenGui", {
@@ -525,6 +526,7 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
+                -- Perfect center math: AnchorPoint 0.5, 0.5. Open: X=12. Closed: X=0.5 Scale (center)
                 local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
@@ -647,17 +649,28 @@ function library:window(props)
     self:connection(settings_btn.MouseButton1Click, function() cfg.settings_tab:select() end)
 
     local ui_section = cfg.settings_tab:section({ name = "ui" })
+    
+    local theme_options = {
+        {name = "default", icon = "moon"},
+        {name = "light", icon = "sun"},
+        {name = "amoled", icon = "contrast"}
+    }
+    for name, _ in pairs(cfg.custom_themes) do
+        table.insert(theme_options, {name = name, icon = "palette"})
+    end
+
     ui_section:dropdown({
         name = "theme",
-        options = {"dark", "light", "amoled"},
-        default = "dark",
+        options = theme_options,
+        default = "default",
         flag = "theme",
         callback = function(val)
             local themes = {
-                ["dark"] = {bg = Color3.fromRGB(30, 30, 30), sbar = Color3.fromRGB(25, 25, 25), text = Color3.fromRGB(220, 220, 220)},
+                ["default"] = {bg = Color3.fromRGB(30, 30, 30), sbar = Color3.fromRGB(25, 25, 25), text = Color3.fromRGB(220, 220, 220)},
                 ["light"] = {bg = Color3.fromRGB(240, 240, 240), sbar = Color3.fromRGB(220, 220, 220), text = Color3.fromRGB(30, 30, 30)},
                 ["amoled"] = {bg = Color3.fromRGB(0, 0, 0), sbar = Color3.fromRGB(10, 10, 10), text = Color3.fromRGB(255, 255, 255)}
             }
+            for name, data in pairs(cfg.custom_themes) do themes[name] = data end
             if themes[val] then
                 self:change_background(themes[val].bg)
             end
@@ -841,7 +854,7 @@ function library:tab(props)
         Name = "icon",
         Parent = button,
         BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(0, 0.5),
+        AnchorPoint = Vector2.new(0.5, 0.5),
         Position = UDim2.new(0, 12, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
@@ -901,7 +914,7 @@ function library:tab(props)
         
         local search_icon = self:create("ImageLabel", {
             Parent = search_container,
-            Position = UDim2.new(0, 8, 0,8),
+            Position = UDim2.new(0, 8, 0, 8),
             Size = UDim2.new(0, 16, 0, 16),
             BackgroundTransparency = 1,
             Image = self:get_icon("search")
@@ -1442,7 +1455,60 @@ function library:dropdown(props)
         if type(cfg.callback) == "function" then cfg.callback(val) end
     end
 
-        local function toggle_dropdown(open)
+    function cfg:refresh(opts)
+        cfg.options = opts
+        for _, child in next, dd_list:GetChildren() do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        for _, opt in next, opts do
+            local name = opt
+            local icon = nil
+            if type(opt) == "table" then
+                name = opt.name
+                icon = opt.icon
+            end
+
+            local opt_btn = library:create("TextButton", {
+                Name = name,
+                Parent = dd_list,
+                Size = UDim2.new(1, 0, 0, 20),
+                BackgroundTransparency = 1,
+                Text = "",
+                AutoButtonColor = false
+            })
+            
+            local text_x = 8
+            if icon then
+                local ic = library:create("ImageLabel", {
+                    Parent = opt_btn,
+                    Position = UDim2.new(0, 8, 0, 2),
+                    Size = UDim2.new(0, 16, 0, 16),
+                    BackgroundTransparency = 1,
+                    Image = self:get_icon(icon)
+                })
+                text_x = 32
+            end
+
+            library:create("TextLabel", {
+                Name = "val",
+                Parent = opt_btn,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, text_x, 0, 0),
+                Size = UDim2.new(1, -text_x, 1, 0),
+                Font = Enum.Font.Gotham,
+                Text = name,
+                TextColor3 = library.themes.preset.text,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            library:connection(opt_btn.MouseButton1Click, function()
+                cfg.set(name)
+                toggle_dropdown(false)
+            end)
+        end
+    end
+
+    local function toggle_dropdown(open)
         cfg.open = open
         local max_h = math.clamp(dd_layout.AbsoluteContentSize.Y, 0, 150)
         local target_h = open and max_h or 0
@@ -1460,39 +1526,6 @@ function library:dropdown(props)
         else
             tween_service:Create(dd_list, TweenInfo.new(0.2, Enum.EasingStyle.Quart, Enum.EasingDirection.In), { Size = UDim2.new(1, 0, 0, 0) }):Play()
             task.delay(0.2, function() if not cfg.open then dd_list.Visible = false end end)
-        end
-    end
-
-    function cfg:refresh(opts)
-        cfg.options = opts
-        for _, child in next, dd_list:GetChildren() do
-            if child:IsA("TextButton") then child:Destroy() end
-        end
-        for _, opt in next, opts do
-            local opt_btn = library:create("TextButton", {
-                Name = opt,
-                Parent = dd_list,
-                Size = UDim2.new(1, 0, 0, 20),
-                BackgroundTransparency = 1,
-                Text = "",
-                AutoButtonColor = false
-            })
-            library:create("TextLabel", {
-                Name = "val",
-                Parent = opt_btn,
-                BackgroundTransparency = 1,
-                Position = UDim2.new(0, 8, 0, 0),
-                Size = UDim2.new(1, -8, 1, 0),
-                Font = Enum.Font.Gotham,
-                Text = opt,
-                TextColor3 = library.themes.preset.text,
-                TextSize = 12,
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
-            library:connection(opt_btn.MouseButton1Click, function()
-                cfg.set(opt)
-                toggle_dropdown(false)
-            end)
         end
     end
 
@@ -1603,7 +1636,8 @@ function library:slider(props)
         BackgroundColor3 = self.themes.preset.dropdown,
         Text = "",
         AutoButtonColor = false,
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ClipsDescendants = false
     })
     self:create("UICorner", { Parent = track, CornerRadius = UDim.new(1, 0) })
 
@@ -1612,18 +1646,20 @@ function library:slider(props)
         Parent = track,
         Size = UDim2.new(0.5, 0, 1, 0),
         BackgroundColor3 = self.themes.preset.accent,
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ClipsDescendants = false
     })
     self:create("UICorner", { Parent = fill, CornerRadius = UDim.new(1, 0) })
 
     local knob = self:create("Frame", {
         Name = "knob",
-        Parent = track,
+        Parent = fill,
         AnchorPoint = Vector2.new(0.5, 0.5),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
+        Position = UDim2.new(1, 0, 0.5, 0),
         Size = UDim2.new(0, 14, 0, 14),
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-        BorderSizePixel = 0
+        BorderSizePixel = 0,
+        ZIndex = 2
     })
     self:create("UICorner", { Parent = knob, CornerRadius = UDim.new(1, 0) })
 
@@ -1644,12 +1680,8 @@ function library:slider(props)
         local percent = (cfg.max == cfg.min) and 0 or (val - cfg.min) / (cfg.max - cfg.min)
         
         local target_fill_size = UDim2.new(percent, 0, 1, 0)
-        -- Perfect math to keep knob perfectly inside the track without using AbsoluteSize
-        local knob_offset = 7 - (percent * 14)
-        local target_knob_pos = UDim2.new(percent, knob_offset, 0.5, 0)
         
         tween_service:Create(fill, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = target_fill_size}):Play()
-        tween_service:Create(knob, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = target_knob_pos}):Play()
         
         if type(cfg.callback) == "function" then cfg.callback(val) end
     end
@@ -1705,7 +1737,8 @@ function library:colorpicker(props)
         BackgroundColor3 = cfg.default,
         Text = "",
         BorderSizePixel = 0,
-        ZIndex = 2
+        ZIndex = 2,
+        AutoButtonColor = false
     })
     self:create("UICorner", { Parent = cp_btn, CornerRadius = UDim.new(0, 4) })
 
@@ -1731,7 +1764,8 @@ function library:colorpicker(props)
         Text = "",
         BorderSizePixel = 0,
         ZIndex = 101,
-        BackgroundColor3 = Color3.fromHSV(h, 1, 1)
+        BackgroundColor3 = Color3.fromHSV(h, 1, 1),
+        AutoButtonColor = false
     })
     self:create("UICorner", { Parent = sv_box, CornerRadius = UDim.new(0, 4) })
     local white_frame = self:create("Frame", {
@@ -1743,7 +1777,7 @@ function library:colorpicker(props)
     })
     self:create("UIGradient", {
         Parent = white_frame,
-        Transparency = NumberSequence.new(0, 1)
+        Transparency = NumberSequence.new(1, 0)
     })
     local black_frame = self:create("Frame", {
         Parent = white_frame,
@@ -1775,7 +1809,8 @@ function library:colorpicker(props)
         Size = UDim2.new(0, 200, 0, 12),
         Text = "",
         BorderSizePixel = 0,
-        ZIndex = 101
+        ZIndex = 101,
+        AutoButtonColor = false
     })
     self:create("UICorner", { Parent = hue_bar, CornerRadius = UDim.new(1, 0) })
     self:create("UIGradient", {
@@ -1872,9 +1907,12 @@ function library:colorpicker(props)
 
     self:connection(cp_btn.MouseButton1Click, function()
         popup.Visible = not popup.Visible
+    end)
+
+    self:connection(run_service.RenderStepped, function()
         if popup.Visible then
-            -- Position it perfectly to the left of the button
-            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 220, 0, cp_btn.AbsolutePosition.Y - 80)
+            -- Position it slightly to the left so it doesn't cover the button
+            popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 180, 0, cp_btn.AbsolutePosition.Y - 80)
         end
     end)
 
