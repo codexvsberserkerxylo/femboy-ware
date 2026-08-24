@@ -596,7 +596,7 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = UDim2.new(0, 11, 0.5, 0)
+                local target_pos = UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
