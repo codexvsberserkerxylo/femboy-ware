@@ -596,14 +596,14 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = UDim2.new(0, 11, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 3, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -645,11 +645,19 @@ function library:window(props)
     info_section:add_info_row("executor", exec_name)
     info_section:add_info_row("support", is_supported)
     
-    library.button(info_section, {
+    info_section:button({
         name = "join discord",
         callback = function()
             setclipboard(cfg.discord_link)
             self:notification({ text = "discord link copied to clipboard!" })
+        end
+    })
+
+    info_section:button({
+        name = "copy jobid",
+        callback = function()
+            setclipboard(game.JobId)
+            self:notification({ text = "job id copied to clipboard!" })
         end
     })
 
@@ -803,7 +811,18 @@ function library:window(props)
     local config_section = cfg.settings_tab:section({ name = "configs" })
     local config_name_input = config_section:textbox({ placeholder = "config name", clear_on_focus = true })
 
-    library.button(config_section, { 
+    local function refresh_configs()
+        if not isfolder(library.directory .. "/configs") then makefolder(library.directory .. "/configs") end
+        local files = listfiles(library.directory .. "/configs")
+        local names = {}
+        for _, file in next, files do
+            local name = file:match("([^/\\]+)%.json$")
+            if name then table.insert(names, name) end
+        end
+        if config_section.config_dd then config_section.config_dd:refresh(names) end
+    end
+
+    config_section:button({ 
         name = "save config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -813,11 +832,11 @@ function library:window(props)
             local path = self.directory .. "/configs/" .. name .. ".json"
             writefile(path, http_service:JSONEncode(config_data))
             self:notification({ text = "saved config: " .. name })
-            config_section:refresh_configs()
+            refresh_configs()
         end 
     })
 
-    library.button(config_section, { 
+    config_section:button({ 
         name = "load config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -826,7 +845,9 @@ function library:window(props)
             if isfile(path) then
                 local data = http_service:JSONDecode(readfile(path))
                 for flag, val in next, data do
-                    if library.config_flags[flag] then library.config_flags[flag](val) end
+                    if type(library.config_flags[flag]) == "function" then 
+                        library.config_flags[flag](val) 
+                    end
                 end
                 self:notification({ text = "loaded config: " .. name })
             else
@@ -835,7 +856,7 @@ function library:window(props)
         end 
     })
 
-    library.button(config_section, { 
+    config_section:button({ 
         name = "delete config", 
         callback = function()
             local name = config_name_input.instance.Text
@@ -844,7 +865,7 @@ function library:window(props)
             if isfile(path) then
                 delfile(path)
                 self:notification({ text = "deleted config: " .. name })
-                config_section:refresh_configs()
+                refresh_configs()
             else
                 self:notification({ text = "config not found!" })
             end
@@ -879,23 +900,12 @@ function library:window(props)
         end
     })
 
-    function config_section:refresh_configs()
-        if not isfolder(library.directory .. "/configs") then makefolder(library.directory .. "/configs") end
-        local files = listfiles(library.directory .. "/configs")
-        local names = {}
-        for _, file in next, files do
-            local name = file:match("([^/\\]+)%.json$")
-            if name then table.insert(names, name) end
-        end
-        if config_section.config_dd then config_section.config_dd:refresh(names) end
-    end
-
     config_section.config_dd = config_section:dropdown({ 
         name = "saved configs", 
         options = {}, 
         callback = function(val) config_name_input.instance.Text = val end
     })
-    config_section:refresh_configs()
+    refresh_configs()
 
     if isfile(library.directory .. "/autoload.txt") then
         local name = readfile(library.directory .. "/autoload.txt")
@@ -903,7 +913,9 @@ function library:window(props)
         if isfile(path) then
             local data = http_service:JSONDecode(readfile(path))
             for flag, val in next, data do
-                if library.config_flags[flag] then library.config_flags[flag](val) end
+                if type(library.config_flags[flag]) == "function" then 
+                    library.config_flags[flag](val) 
+                end
             end
         end
     end
@@ -960,7 +972,7 @@ function library:tab(props)
         Parent = button,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 12, 0.5, 0),
+        Position = UDim2.new(0, 11, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
     })
@@ -982,7 +994,8 @@ function library:tab(props)
         Name = cfg.name .. "_page",
         Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
-        BackgroundTransparency = 1,
+        BackgroundColor3 = self.themes.preset.background,
+        BorderSizePixel = 0,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0),
         ZIndex = 1
@@ -1279,10 +1292,12 @@ function library:toggle(props)
         Text = "",
         AutoButtonColor = false
     })
-    self:create("TextLabel", {
+    
+    local name_label = self:create("TextLabel", {
         Name = "name",
         Parent = toggle_frame,
         BackgroundTransparency = 1,
+        Position = UDim2.new(0, 0, 0, 0),
         Size = UDim2.new(1, -50, 1, 0),
         Font = Enum.Font.Gotham,
         Text = cfg.name,
@@ -1330,8 +1345,67 @@ function library:toggle(props)
     self:connection(toggle_frame.MouseButton1Click, function() cfg.set(not cfg.value) end)
     cfg.set(cfg.default)
     library.config_flags[cfg.flag] = cfg.set
+    
+    function cfg:options()
+        name_label.Size = UDim2.new(1, -80, 1, 0)
+        switch_bg.Position = UDim2.new(1, -72, 0, 6)
+        
+        local dd_btn = self:create("ImageButton", {
+            Name = "options_dropdown",
+            Parent = toggle_frame,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -48, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            Image = self:get_icon("down"),
+            ZIndex = 3
+        })
+
+        local options_frame = self:create("Frame", {
+            Name = cfg.name .. "_options",
+            Parent = toggle_frame.Parent,
+            Size = UDim2.new(1, 0, 0, 0),
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            LayoutOrder = toggle_frame.LayoutOrder + 1
+        })
+
+        local options_layout = self:create("UIListLayout", {
+            Parent = options_frame,
+            Padding = UDim.new(0, 8),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        self:create("UIPadding", {
+            Parent = options_frame,
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 20),
+            PaddingRight = UDim.new(0, 0)
+        })
+
+        local expanded = false
+        self:connection(dd_btn.MouseButton1Click, function()
+            expanded = not expanded
+            local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
+            tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
+            tween_service:Create(dd_btn, TweenInfo.new(0.3), {Rotation = expanded and 180 or 0}):Play()
+        end)
+
+        options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if expanded then
+                options_frame.Size = UDim2.new(1, 0, 0, options_layout.AbsoluteContentSize.Y + 8)
+            end
+        end)
+
+        local options_env = setmetatable({
+            holder = options_frame,
+            elements = {}
+        }, { __index = self })
+
+        return options_env
+    end
+    
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:button(props)
@@ -1351,7 +1425,7 @@ function library:button(props)
     })
     self:create("UICorner", { Parent = btn, CornerRadius = UDim.new(0, 4) })
 
-    self:create("TextLabel", {
+    local name_label = self:create("TextLabel", {
         Name = "name",
         Parent = btn,
         BackgroundTransparency = 1,
@@ -1369,8 +1443,66 @@ function library:button(props)
         end)
         if type(cfg.callback) == "function" then cfg.callback() end
     end)
+
+    function cfg:options()
+        name_label.Size = UDim2.new(1, -40, 1, 0)
+        
+        local dd_btn = self:create("ImageButton", {
+            Name = "options_dropdown",
+            Parent = btn,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -28, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            Image = self:get_icon("down"),
+            ZIndex = 3
+        })
+
+        local options_frame = self:create("Frame", {
+            Name = cfg.name .. "_options",
+            Parent = btn.Parent,
+            Size = UDim2.new(1, 0, 0, 0),
+            BackgroundTransparency = 1,
+            ClipsDescendants = true,
+            LayoutOrder = btn.LayoutOrder + 1
+        })
+
+        local options_layout = self:create("UIListLayout", {
+            Parent = options_frame,
+            Padding = UDim.new(0, 8),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+        self:create("UIPadding", {
+            Parent = options_frame,
+            PaddingTop = UDim.new(0, 4),
+            PaddingBottom = UDim.new(0, 4),
+            PaddingLeft = UDim.new(0, 20),
+            PaddingRight = UDim.new(0, 0)
+        })
+
+        local expanded = false
+        self:connection(dd_btn.MouseButton1Click, function()
+            expanded = not expanded
+            local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
+            tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
+            tween_service:Create(dd_btn, TweenInfo.new(0.3), {Rotation = expanded and 180 or 0}):Play()
+        end)
+
+        options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if expanded then
+                options_frame.Size = UDim2.new(1, 0, 0, options_layout.AbsoluteContentSize.Y + 8)
+            end
+        end)
+
+        local options_env = setmetatable({
+            holder = options_frame,
+            elements = {}
+        }, { __index = self })
+
+        return options_env
+    end
+
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:keybind(props)
@@ -1463,7 +1595,7 @@ function library:keybind(props)
         bind_input(val)
     end
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:dropdown(props)
@@ -1644,7 +1776,7 @@ function library:dropdown(props)
     if cfg.default then cfg.set(cfg.default) end
     library.config_flags[cfg.flag] = cfg.set
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:textbox(props)
@@ -1695,7 +1827,7 @@ function library:textbox(props)
         end
     end
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:slider(props)
@@ -1813,7 +1945,7 @@ function library:slider(props)
     cfg.set(cfg.default)
     library.config_flags[cfg.flag] = cfg.set
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:colorpicker(props)
@@ -2084,7 +2216,7 @@ function library:colorpicker(props)
     update_color()
     library.config_flags[cfg.flag] = function(val) cfg.set(val) end
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:notification(props)
