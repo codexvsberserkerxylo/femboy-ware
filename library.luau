@@ -1888,8 +1888,8 @@ function library:colorpicker(props)
     self:create("UIGradient", {
         Parent = white_frame,
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 1),
-            NumberSequenceKeypoint.new(1, 0)
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1)
         })
     })
 
@@ -1903,8 +1903,8 @@ function library:colorpicker(props)
     self:create("UIGradient", {
         Parent = black_frame,
         Transparency = NumberSequence.new({
-            NumberSequenceKeypoint.new(0, 0),
-            NumberSequenceKeypoint.new(1, 1)
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(1, 0)
         }),
         Rotation = 90
     })
@@ -2082,12 +2082,12 @@ function library:colorpicker(props)
     end
 
     update_color()
-        library.config_flags[cfg.flag] = function(val) cfg.set(val) end
-        if self.elements then table.insert(self.elements, cfg) end
-        return cfg
-    end
+    library.config_flags[cfg.flag] = function(val) cfg.set(val) end
+    if self.elements then table.insert(self.elements, cfg) end
+    return cfg
+end
 
-    function library:notification(props)
+function library:notification(props)
     local cfg = {
         text = props.text or "notification",
         duration = props.duration or 3
