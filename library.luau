@@ -25,6 +25,23 @@ if getgenv().library then
     getgenv().library:unload()
 end
 
+local function hex_to_color(hex)
+    if type(hex) ~= "string" then return nil end
+    if string.sub(hex, 1, 1) == "#" then hex = string.sub(hex, 2) end
+    if #hex == 6 then
+        local r = tonumber(string.sub(hex, 1, 2), 16)
+        local g = tonumber(string.sub(hex, 3, 4), 16)
+        local b = tonumber(string.sub(hex, 5, 6), 16)
+        if r and g and b then return Color3.fromRGB(r, g, b) end
+    elseif #hex == 3 then
+        local r = tonumber(string.sub(hex, 1, 1), 16) * 17
+        local g = tonumber(string.sub(hex, 2, 2), 16) * 17
+        local b = tonumber(string.sub(hex, 3, 3), 16) * 17
+        if r and g and b then return Color3.fromRGB(r, g, b) end
+    end
+    return nil
+end
+
 local library = {
     flags = {},
     config_flags = {},
@@ -526,7 +543,6 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                -- Perfect center math: AnchorPoint 0.5, 0.5. Open: X=12. Closed: X=0.5 Scale (center)
                 local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
@@ -854,7 +870,7 @@ function library:tab(props)
         Name = "icon",
         Parent = button,
         BackgroundTransparency = 1,
-        AnchorPoint = Vector2.new(0.5, 0.5),
+        AnchorPoint = Vector2.new(0, 0.5),
         Position = UDim2.new(0, 12, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
@@ -1893,12 +1909,8 @@ function library:colorpicker(props)
     self:connection(hue_bar.MouseButton1Down, function() dragging_hue = true end)
 
     self:connection(hex_box.FocusLost, function()
-        local text = hex_box.Text
-        if string.sub(text, 1, 1) ~= "#" then text = "#" .. text end
-        local success, color = pcall(function()
-            return Color3.fromHex(text)
-        end)
-        if success and color then
+        local color = hex_to_color(hex_box.Text)
+        if color then
             cfg.set(color)
         else
             update_color()
@@ -1909,9 +1921,9 @@ function library:colorpicker(props)
         popup.Visible = not popup.Visible
     end)
 
-    self:connection(run_service.RenderStepped, function()
+    -- Efficient listener to make popup follow the ui if dragged
+    self:connection(cp_btn:GetPropertyChangedSignal("AbsolutePosition"), function()
         if popup.Visible then
-            -- Position it slightly to the left so it doesn't cover the button
             popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 180, 0, cp_btn.AbsolutePosition.Y - 80)
         end
     end)
