@@ -359,8 +359,8 @@ function library:window(props)
         Name = "icon",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 8, 0, 2),
-        Size = UDim2.new(0, 36, 0, 36),
+        Position = UDim2.new(0, 8, 0, 8),
+        Size = UDim2.new(0, 24, 0, 24),
         Image = self:get_icon(cfg.icon)
     })
 
@@ -368,7 +368,7 @@ function library:window(props)
         Name = "title",
         Parent = topbar,
         BackgroundTransparency = 1,
-        Position = UDim2.new(0, 52, 0, 0),
+        Position = UDim2.new(0, 40, 0, 0),
         Size = UDim2.new(1, -200, 1, 0),
         Font = Enum.Font.GothamBold,
         RichText = true,
@@ -543,15 +543,14 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                -- Perfect offset math for 16px icon in 50px (closed) or 140px (open) sidebar
-                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
+                local target_pos = panel_collapsed and UDim2.new(0, 11, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 3, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -1501,7 +1500,7 @@ function library:dropdown(props)
                     Position = UDim2.new(0, 8, 0, 2),
                     Size = UDim2.new(0, 16, 0, 16),
                     BackgroundTransparency = 1,
-                    Image = library:get_icon(icon) -- FIXED: changed from self: to library:
+                    Image = library:get_icon(icon)
                 })
                 text_x = 32
             end
