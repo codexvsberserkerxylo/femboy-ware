@@ -1264,153 +1264,6 @@ function library:section(props)
     return setmetatable(cfg, { __index = self })
 end
 
-function library:toggle(props)
-    local cfg = {
-        name = props.name or "toggle",
-        state = props.state or false,
-        callback = props.callback or function() end,
-        flag = props.flag or ""
-    }
-
-    local toggle_frame = self:create("TextButton", {
-        Name = cfg.name,
-        Parent = self.holder,
-        Size = UDim2.new(1, 0, 0, 24),
-        BackgroundTransparency = 1,
-        Text = "",
-        AutoButtonColor = false
-    })
-
-    local name_label = self:create("TextLabel", {
-        Name = "name",
-        Parent = toggle_frame,
-        Size = UDim2.new(1, -40, 1, 0),
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 8, 0, 0),
-        Text = cfg.name,
-        TextColor3 = self.themes.preset.text,
-        Font = self.themes.preset.font,
-        TextSize = self.themes.preset.text_size,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-
-    local switch_bg = self:create("Frame", {
-        Name = "switch",
-        Parent = toggle_frame,
-        Size = UDim2.new(0, 32, 0, 12),
-        Position = UDim2.new(1, -38, 0, 6),
-        BackgroundColor3 = self.themes.preset.dropdown,
-        BorderSizePixel = 0
-    })
-    self:create("UICorner", {
-        Parent = switch_bg,
-        CornerRadius = UDim.new(0, 6)
-    })
-
-    local indicator = self:create("Frame", {
-        Name = "indicator",
-        Parent = switch_bg,
-        Size = UDim2.new(0, 10, 0, 10),
-        Position = UDim2.new(0, 1, 0, 1),
-        BackgroundColor3 = self.themes.preset.text,
-        BorderSizePixel = 0
-    })
-    self:create("UICorner", {
-        Parent = indicator,
-        CornerRadius = UDim.new(0, 5)
-    })
-
-    local function update()
-        tween_service:Create(indicator, TweenInfo.new(0.2), {
-            Position = cfg.state and UDim2.new(1, -11, 0, 1) or UDim2.new(0, 1, 0, 1),
-            BackgroundColor3 = cfg.state and self.themes.preset.accent or self.themes.preset.text
-        }):Play()
-        
-        if cfg.flag ~= "" then
-            library.flags[cfg.flag] = cfg.state
-        end
-        
-        cfg.callback(cfg.state)
-    end
-
-    self:connection(toggle_frame.MouseButton1Click, function()
-        cfg.state = not cfg.state
-        update()
-    end)
-
-    function cfg:set(val)
-        cfg.state = val
-        update()
-    end
-
-    function cfg:options()
-        name_label.Size = UDim2.new(1, -80, 1, 0)
-        switch_bg.Position = UDim2.new(1, -72, 0, 6)
-        
-        local dd_btn = self:create("ImageButton", {
-            Name = "options_dropdown",
-            Parent = toggle_frame,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(1, -48, 0, 8),
-            Size = UDim2.new(0, 16, 0, 16),
-            Image = self:get_icon("down"),
-            ZIndex = 3
-        })
-
-        local options_frame = self:create("Frame", {
-            Name = cfg.name .. "_options",
-            Parent = toggle_frame.Parent,
-            Size = UDim2.new(1, 0, 0, 0),
-            BackgroundTransparency = 1,
-            ClipsDescendants = true,
-            LayoutOrder = toggle_frame.LayoutOrder + 1
-        })
-
-        local options_layout = self:create("UIListLayout", {
-            Parent = options_frame,
-            Padding = UDim.new(0, 8),
-            SortOrder = Enum.SortOrder.LayoutOrder
-        })
-        self:create("UIPadding", {
-            Parent = options_frame,
-            PaddingTop = UDim.new(0, 4),
-            PaddingBottom = UDim.new(0, 4),
-            PaddingLeft = UDim.new(0, 20),
-            PaddingRight = UDim.new(0, 0)
-        })
-
-        local expanded = false
-        self:connection(dd_btn.MouseButton1Click, function()
-            expanded = not expanded
-            local target_h = expanded and (options_layout.AbsoluteContentSize.Y + 8) or 0
-            tween_service:Create(options_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, target_h)}):Play()
-            tween_service:Create(dd_btn, TweenInfo.new(0.3), {Rotation = expanded and 180 or 0}):Play()
-        end)
-
-        options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            if expanded then
-                options_frame.Size = UDim2.new(1, 0, 0, options_layout.AbsoluteContentSize.Y + 8)
-            end
-        end)
-
-        local options_env = setmetatable({
-            holder = options_frame,
-            elements = {}
-        }, { __index = self })
-
-        return options_env
-    end
-
-    if cfg.state then update() end
-    if cfg.flag ~= "" then
-        library.flags[cfg.flag] = cfg.state
-        table.insert(library.config_flags, {flag = cfg.flag, type = "toggle", set = cfg.set})
-    end
-
-    if self.elements then table.insert(self.elements, cfg) end
-    return setmetatable(cfg, { __index = self })
-end
-
 function library:button(props)
     local cfg = {
         name = props.name or "button",
@@ -1420,52 +1273,31 @@ function library:button(props)
     local btn = self:create("TextButton", {
         Name = cfg.name,
         Parent = self.holder,
-        Size = UDim2.new(1, 0, 0, 24),
+        Size = UDim2.new(1, 0, 0, 32),
         BackgroundColor3 = self.themes.preset.dropdown,
-        BorderSizePixel = 0,
         Text = "",
-        AutoButtonColor = false
+        AutoButtonColor = false,
+        BorderSizePixel = 0
     })
-    self:create("UICorner", {
-        Parent = btn,
-        CornerRadius = UDim.new(0, 4)
-    })
+    self:create("UICorner", { Parent = btn, CornerRadius = UDim.new(0, 4) })
 
     local name_label = self:create("TextLabel", {
         Name = "name",
         Parent = btn,
-        Size = UDim2.new(1, 0, 1, 0),
         BackgroundTransparency = 1,
+        Size = UDim2.new(1, 0, 1, 0),
+        Font = Enum.Font.Gotham,
         Text = cfg.name,
         TextColor3 = self.themes.preset.text,
-        Font = self.themes.preset.font,
-        TextSize = self.themes.preset.text_size
+        TextSize = 13
     })
 
     self:connection(btn.MouseButton1Click, function()
-        cfg.callback()
-        
-        local ripple = self:create("Frame", {
-            Parent = btn,
-            BackgroundColor3 = Color3.new(1, 1, 1),
-            BackgroundTransparency = 0.8,
-            Size = UDim2.new(0, 0, 0, 0),
-            Position = UDim2.new(0.5, 0, 0.5, 0),
-            AnchorPoint = Vector2.new(0.5, 0.5)
-        })
-        self:create("UICorner", {
-            Parent = ripple,
-            CornerRadius = UDim.new(1, 0)
-        })
-        
-        local tween = tween_service:Create(ripple, TweenInfo.new(0.4), {
-            Size = UDim2.new(1, 0, 1, 0),
-            BackgroundTransparency = 1
-        })
-        tween:Play()
-        tween.Completed:Connect(function()
-            ripple:Destroy()
+        tween_service:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = self.themes.preset.accent }):Play()
+        task.delay(0.1, function()
+            tween_service:Create(btn, TweenInfo.new(0.2), { BackgroundColor3 = self.themes.preset.dropdown }):Play()
         end)
+        if type(cfg.callback) == "function" then cfg.callback() end
     end)
 
     function cfg:options()
