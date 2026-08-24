@@ -543,14 +543,15 @@ function library:window(props)
                 tween_service:Create(tab.text_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
             end
             if tab.icon_label then
-                local target_pos = panel_collapsed and UDim2.new(0.5, 0, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
+                -- Perfect offset math for 16px icon in 50px (closed) or 140px (open) sidebar
+                local target_pos = panel_collapsed and UDim2.new(0, 17, 0.5, 0) or UDim2.new(0, 12, 0.5, 0)
                 tween_service:Create(tab.icon_label, t_info, { Position = target_pos }):Play()
             end
         end
         tween_service:Create(pname_label, t_info, { TextTransparency = panel_collapsed and 1 or 0 }):Play()
         
         if panel_collapsed then
-            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0.5, -16, 0.5, 0) }):Play()
+            tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 9, 0.5, 0) }):Play()
         else
             tween_service:Create(avatar_img, t_info, { Position = UDim2.new(0, 0, 0.5, 0) }):Play()
         end
@@ -1500,7 +1501,7 @@ function library:dropdown(props)
                     Position = UDim2.new(0, 8, 0, 2),
                     Size = UDim2.new(0, 16, 0, 16),
                     BackgroundTransparency = 1,
-                    Image = self:get_icon(icon)
+                    Image = library:get_icon(icon) -- FIXED: changed from self: to library:
                 })
                 text_x = 32
             end
@@ -1804,7 +1805,7 @@ function library:colorpicker(props)
     })
     self:create("UIGradient", {
         Parent = black_frame,
-        Transparency = NumberSequence.new(1, 0),
+        Transparency = NumberSequence.new(1,0),
         Rotation = 90
     })
 
@@ -1921,7 +1922,6 @@ function library:colorpicker(props)
         popup.Visible = not popup.Visible
     end)
 
-    -- Efficient listener to make popup follow the ui if dragged
     self:connection(cp_btn:GetPropertyChangedSignal("AbsolutePosition"), function()
         if popup.Visible then
             popup.Position = UDim2.new(0, cp_btn.AbsolutePosition.X - 180, 0, cp_btn.AbsolutePosition.Y - 80)
