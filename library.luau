@@ -568,7 +568,8 @@ function library:window(props)
     self:connection(close_btn.MouseButton1Click, function()
         if self.is_closing then return end
         self.is_closing = true
-        
+        main_frame.BackgroundTransparency = 1
+
         local overlay = self:create("Frame", {
             Name = "closing_overlay",
             Parent = main_frame,
@@ -620,8 +621,6 @@ function library:window(props)
                 child:Destroy()
             end
         end
-
-        main_frame.BackgroundTransparency = 1
 
         task.wait(1.4)
 
