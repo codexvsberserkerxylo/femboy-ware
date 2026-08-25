@@ -1412,6 +1412,9 @@ function library:toggle(props)
         self:create("UIPadding", { Parent = mode_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
 
         set_mode = function(m)
+            if m ~= "toggle" and m ~= "hold" then
+                m = "toggle"
+            end
             cfg.mode = m
             mode_btn.Text = m
             library.flags[cfg.flag.."_mode"] = m
@@ -1470,10 +1473,14 @@ function library:toggle(props)
         end)
 
         toggle_bind_input = function(key)
+            if key == nil then key = Enum.KeyCode.Unknown end
             if typeof(key) == "string" then
                 local k = Enum.KeyCode[key] or Enum.UserInputType[key]
-                if k then key = k else return end
+                if k then key = k else key = Enum.KeyCode.Unknown end
+            elseif typeof(key) ~= "EnumItem" then
+                key = Enum.KeyCode.Unknown
             end
+            
             cfg.key = key
             local key_name = "None"
             if key ~= Enum.KeyCode.Unknown then
@@ -1481,6 +1488,8 @@ function library:toggle(props)
             end
             bind_btn.Text = key_name
             library.flags[cfg.flag.."_key"] = key_name
+            
+            if cfg.mode == nil then cfg.mode = "toggle" end
             set_mode(cfg.mode)
         end
 
