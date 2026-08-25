@@ -1519,12 +1519,6 @@ function library:toggle(props)
 
         self:connection(remove_btn.MouseButton1Click, function()
             toggle_bind_input(Enum.KeyCode.Unknown)
-            local t1 = tween_service:Create(remove_btn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 16, 0, 16)})
-            t1:Play()
-            t1.Completed:Connect(function()
-                local t2 = tween_service:Create(remove_btn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 12, 0, 12)})
-                t2:Play()
-            end)
         end)
 
         self:connection(bind_btn.MouseButton1Click, function()
