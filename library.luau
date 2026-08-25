@@ -609,6 +609,20 @@ function library:window(props)
             task.wait(rng())
         end
 
+        for _, child in ipairs(main_frame.Parent:GetChildren()) do
+            if child ~= main_frame then
+                child:Destroy()
+            end
+        end
+
+        for _, child in ipairs(main_frame:GetChildren()) do
+            if child ~= overlay then
+                child:Destroy()
+            end
+        end
+
+        main_frame.BackgroundTransparency = 1
+
         task.wait(1.4)
 
         local shrink_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
