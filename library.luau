@@ -960,7 +960,7 @@ function library:tab(props)
         Parent = button,
         BackgroundTransparency = 1,
         AnchorPoint = Vector2.new(0, 0.5),
-        Position = UDim2.new(0, 12, 0.5, 0),
+        Position = UDim2.new(0, 11, 0.5, 0),
         Size = UDim2.new(0, 16, 0, 16),
         Image = self:get_icon(cfg.icon)
     })
@@ -983,7 +983,8 @@ function library:tab(props)
         Parent = self.gui.main.content.tab_content,
         Size = UDim2.new(1, 0, 1, 0),
         BackgroundColor3 = self.themes.preset.background,
-        BackgroundTransparency = 1,
+        BackgroundTransparency = 0, 
+        BorderSizePixel = 0,
         Visible = false,
         Position = UDim2.new(0, 0, 0, 0),
         ZIndex = 1
@@ -1089,22 +1090,19 @@ function library:tab(props)
         library:close_popups()
         
         local old_tab = library.current_tab
-        local direction = 1
-        if old_tab and old_tab.order then
-            if old_tab.order < cfg.order then direction = 1 else direction = -1 end
-        end
 
         if old_tab then
             old_tab.button.BackgroundTransparency = 1
             old_tab.accent_bar.Visible = false
             old_tab.text_label.TextColor3 = library.themes.preset.placeholder
             
-            old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
             old_tab.frame.ZIndex = 1
-            tween_service:Create(old_tab.frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Position = UDim2.new(-direction, 0, 0, 0) }):Play()
-            task.delay(0.35, function()
-                old_tab.frame.Visible = false
-                old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
+            tween_service:Create(old_tab.frame, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.In), { Position = UDim2.new(-1, 0, 0, 0) }):Play()
+            task.delay(0.3, function()
+                if old_tab and old_tab.frame then
+                    old_tab.frame.Visible = false
+                    old_tab.frame.Position = UDim2.new(0, 0, 0, 0)
+                end
             end)
         end
 
@@ -1115,8 +1113,7 @@ function library:tab(props)
         
         frame.Visible = true
         frame.ZIndex = 2
-        frame.Position = UDim2.new(direction, 0, 0, 0)
-        tween_service:Create(frame, TweenInfo.new(0.35, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), { Position = UDim2.new(0, 0, 0, 0) }):Play()
+        frame.Position = UDim2.new(0, 0, 0, 0)
     end
 
     self:connection(button.MouseButton1Click, function() cfg:select() end)
