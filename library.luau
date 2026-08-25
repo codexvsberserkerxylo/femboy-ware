@@ -568,7 +568,6 @@ function library:window(props)
     self:connection(close_btn.MouseButton1Click, function()
         if self.is_closing then return end
         self.is_closing = true
-        main_frame.BackgroundTransparency = 1
 
         local overlay = self:create("Frame", {
             Name = "closing_overlay",
@@ -603,11 +602,16 @@ function library:window(props)
         expand_tween:Play()
         expand_tween.Completed:Wait()
 
-        local full_text = "goodbye, " .. player.DisplayName
-        local function rng() return tonumber(string.format("%.3f", math.random() * 0.05 + 0.09)) end -- fuck luau
+        local function rng(char) -- i guess
+            local base = math.random() * 0.15 + 0.03
+            if char == "," or char == "." or char == " " then base += math.random() * 0.12 end
+            return tonumber(string.format("%.3f", base))
+        end
+
         for i = 1, #full_text do
+            local char = string.sub(full_text, i, i)
             fuckoff.Text = string.sub(full_text, 1, i)
-            task.wait(rng())
+            task.wait(rng(char))
         end
 
         for _, child in ipairs(main_frame.Parent:GetChildren()) do
@@ -622,7 +626,9 @@ function library:window(props)
             end
         end
 
-        task.wait(1.4)
+        main_frame.BackgroundTransparency = 1
+
+        task.wait(1.53) -- ok
 
         local shrink_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0)
