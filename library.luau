@@ -1201,11 +1201,12 @@ function library:section(props)
     cfg.frame = section_frame
 
     self:connection(elements_layout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-        local target_height = elements_layout.AbsoluteContentSize.Y + 12 
-        local target_frame_size = target_height + 32
         if cfg.expanded then
-            elements_holder.Size = UDim2.new(1, 0, 0, target_height)
-            section_frame.Size = UDim2.new(1, 0, 0, target_frame_size)
+            local target_height = elements_layout.AbsoluteContentSize.Y + 12 
+            local target_frame_size = target_height + 32
+            local t_info = TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+            tween_service:Create(elements_holder, t_info, { Size = UDim2.new(1, 0, 0, target_height) }):Play()
+            tween_service:Create(section_frame, t_info, { Size = UDim2.new(1, 0, 0, target_frame_size) }):Play()
         end
     end)
 
@@ -1284,18 +1285,34 @@ function library:toggle(props)
         AutoButtonColor = false
     })
     
-    local name_width = -50
+    local name_label = self:create("TextLabel", {
+        Name = "name",
+        Parent = toggle_frame,
+        BackgroundTransparency = 1,
+        Size = UDim2.new(1, -50, 1, 0),
+        Font = Enum.Font.Gotham,
+        Text = cfg.name,
+        TextColor3 = self.themes.preset.text,
+        TextSize = 13,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+
+    local switch_bg_pos_x = -42
     local settings_btn = nil
-    local options_frame = nil
+    local popup_frame = nil
     local bind_btn = nil
     local mode_btn = nil
     local mode_list = nil
     local toggle_bind_input = nil
     local set_mode = nil
     local expanded = false
+    local current_rot = 0
+    local text_service = game:GetService("TextService")
     
     if cfg.keybind_enabled then
-        name_width = -90
+        switch_bg_pos_x = -78
+        name_label.Size = UDim2.new(1, -86, 1, 0)
+        
         settings_btn = self:create("ImageButton", {
             Name = "settings_btn",
             Parent = toggle_frame,
@@ -1306,30 +1323,28 @@ function library:toggle(props)
             ZIndex = 3
         })
         
-        options_frame = self:create("Frame", {
-            Name = cfg.name .. "_settings",
-            Parent = self.holder,
-            Size = UDim2.new(1, 0, 0, 0),
-            BackgroundTransparency = 1,
-            ClipsDescendants = true,
-            LayoutOrder = toggle_frame.LayoutOrder + 1
+        popup_frame = self:create("Frame", {
+            Name = "keybind_popup",
+            Parent = self.gui,
+            Visible = false,
+            Size = UDim2.new(0, 160, 0, 0),
+            BackgroundColor3 = self.themes.preset.element_background,
+            BorderSizePixel = 0,
+            ZIndex = 100,
+            ClipsDescendants = true
         })
-
-        local options_layout = self:create("UIListLayout", {
-            Parent = options_frame,
+        self:create("UICorner", { Parent = popup_frame, CornerRadius = UDim.new(0, 4) })
+        self:create("UIStroke", { Parent = popup_frame, Color = self.themes.preset.stroke, Thickness = 1, ZIndex = 100 })
+        self:create("UIPadding", { Parent = popup_frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
+        
+        local popup_layout = self:create("UIListLayout", {
+            Parent = popup_frame,
             Padding = UDim.new(0, 6),
             SortOrder = Enum.SortOrder.LayoutOrder
         })
-        self:create("UIPadding", {
-            Parent = options_frame,
-            PaddingTop = UDim.new(0, 4),
-            PaddingBottom = UDim.new(0, 4),
-            PaddingLeft = UDim.new(0, 20),
-            PaddingRight = UDim.new(0, 10)
-        })
 
         local keybind_row = self:create("Frame", {
-            Parent = options_frame,
+            Parent = popup_frame,
             Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1
         })
@@ -1358,7 +1373,7 @@ function library:toggle(props)
         self:create("UICorner", { Parent = bind_btn, CornerRadius = UDim.new(0, 4) })
 
         local mode_row = self:create("Frame", {
-            Parent = options_frame,
+            Parent = popup_frame,
             Size = UDim2.new(1, 0, 0, 20),
             BackgroundTransparency = 1
         })
@@ -1387,24 +1402,26 @@ function library:toggle(props)
         self:create("UICorner", { Parent = mode_btn, CornerRadius = UDim.new(0, 4) })
 
         mode_list = self:create("Frame", {
-            Parent = options_frame,
+            Parent = popup_frame,
             Size = UDim2.new(1, 0, 0, 0),
-            BackgroundColor3 = self.themes.preset.element_background,
+            BackgroundColor3 = self.themes.preset.dropdown,
             BorderSizePixel = 0,
-            Visible = false
+            Visible = false,
+            ZIndex = 101
         })
         self:create("UICorner", { Parent = mode_list, CornerRadius = UDim.new(0, 4) })
         local mode_layout = self:create("UIListLayout", { Parent = mode_list, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
         self:create("UIPadding", { Parent = mode_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
 
-        local function update_options_size()
-            if expanded then
-                options_frame.Size = UDim2.new(1, 0, 0, options_layout.AbsoluteContentSize.Y + 8)
-            else
-                options_frame.Size = UDim2.new(1, 0, 0, 0)
-            end
+        local function update_popup_size()
+            local target_h = popup_layout.AbsoluteContentSize.Y
+            tween_service:Create(popup_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 160, 0, target_h)}):Play()
         end
-        options_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(update_options_size)
+        popup_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+            if expanded then
+                update_popup_size()
+            end
+        end)
 
         set_mode = function(m)
             if m ~= "toggle" and m ~= "hold" then
@@ -1460,13 +1477,13 @@ function library:toggle(props)
             self:connection(opt_btn.MouseButton1Click, function()
                 set_mode(m)
                 mode_list.Visible = false
-                update_options_size()
+                update_popup_size()
             end)
         end
 
         self:connection(mode_btn.MouseButton1Click, function()
             mode_list.Visible = not mode_list.Visible
-            update_options_size()
+            update_popup_size()
         end)
 
         toggle_bind_input = function(key)
@@ -1483,7 +1500,13 @@ function library:toggle(props)
             if key ~= Enum.KeyCode.Unknown then
                 key_name = key.Name
             end
+            
+            local text_size = text_service:GetTextSize(key_name, 12, Enum.Font.Gotham, Vector2.new(1000, 20))
+            local target_width = math.max(50, text_size.X + 16)
+            bind_btn.Size = UDim2.new(0, target_width, 0, 20)
+            bind_btn.Position = UDim2.new(1, -target_width, 0, 0)
             bind_btn.Text = key_name
+            
             library.flags[cfg.flag.."_key"] = key_name
             
             if cfg.mode == nil then cfg.mode = "toggle" end
@@ -1512,18 +1535,34 @@ function library:toggle(props)
             end)
         end)
 
+        local function update_popup_pos()
+            local btn_pos = settings_btn.AbsolutePosition
+            local btn_size = settings_btn.AbsoluteSize
+            popup_frame.Position = UDim2.new(0, btn_pos.X - 140, 0, btn_pos.Y + btn_size.Y + 4)
+        end
+
         self:connection(settings_btn.MouseButton1Click, function()
             expanded = not expanded
-            local spin_tween = tween_service:Create(settings_btn, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation = 360})
-            spin_tween:Play()
-            spin_tween.Completed:Connect(function()
-                settings_btn.Rotation = 0
-            end)
+            current_rot += 360
+            tween_service:Create(settings_btn, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation = current_rot}):Play()
             
-            if not expanded then
+            if expanded then
                 mode_list.Visible = false
+                popup_frame.Visible = true
+                popup_frame.Size = UDim2.new(0, 160, 0, 0)
+                update_popup_pos()
+                update_popup_size()
+            else
+                mode_list.Visible = false
+                tween_service:Create(popup_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 160, 0, 0)}):Play()
+                task.delay(0.3, function() if not expanded then popup_frame.Visible = false end end)
             end
-            update_options_size()
+        end)
+
+        self:connection(settings_btn:GetPropertyChangedSignal("AbsolutePosition"), function()
+            if popup_frame.Visible then
+                update_popup_pos()
+            end
         end)
 
         toggle_bind_input(cfg.default_key)
@@ -1533,22 +1572,10 @@ function library:toggle(props)
         library.config_flags[cfg.flag.."_mode"] = function(val) set_mode(val) end
     end
     
-    local name_label = self:create("TextLabel", {
-        Name = "name",
-        Parent = toggle_frame,
-        BackgroundTransparency = 1,
-        Size = UDim2.new(1, name_width, 1, 0),
-        Font = Enum.Font.Gotham,
-        Text = cfg.name,
-        TextColor3 = self.themes.preset.text,
-        TextSize = 13,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-
     local switch_bg = self:create("Frame", {
         Name = "switch",
         Parent = toggle_frame,
-        Position = UDim2.new(1, -42, 0, 6),
+        Position = UDim2.new(1, switch_bg_pos_x, 0, 6),
         Size = UDim2.new(0, 36, 0, 20),
         BackgroundColor3 = self.themes.preset.dropdown,
         BorderSizePixel = 0
@@ -1661,31 +1688,44 @@ function library:keybind(props)
     local bind_btn = self:create("TextButton", {
         Name = "bind",
         Parent = bind_frame,
-        Position = UDim2.new(1, -70, 0, 6),
+        AnchorPoint = Vector2.new(1, 0),
+        Position = UDim2.new(1, -10, 0, 6),
         Size = UDim2.new(0, 60, 0, 20),
         BackgroundColor3 = self.themes.preset.dropdown,
         Text = "",
         BorderSizePixel = 0,
-        AutoButtonColor = false
+        AutoButtonColor = false,
+        Font = Enum.Font.Gotham,
+        TextColor3 = self.themes.preset.placeholder,
+        TextSize = 12
     })
     self:create("UICorner", { Parent = bind_btn, CornerRadius = UDim.new(0, 4) })
-
+    
     local bind_text = self:create("TextLabel", {
         Name = "text",
         Parent = bind_btn,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.new(1, -8, 1, 0),
+        Position = UDim2.new(0, 4, 0, 0),
         Font = Enum.Font.Gotham,
         Text = "...",
         TextColor3 = self.themes.preset.placeholder,
-        TextScaled = true
+        TextSize = 12
     })
+
+    local text_service = game:GetService("TextService")
 
     local function get_key_name(key)
         if typeof(key) == "EnumItem" then
             return key.Name
         end
         return tostring(key)
+    end
+
+    local function update_bind_size(text)
+        local size = text_service:GetTextSize(text, 12, Enum.Font.Gotham, Vector2.new(1000, 20))
+        local target_width = math.max(50, size.X + 16)
+        bind_btn.Size = UDim2.new(0, target_width, 0, 20)
     end
 
     local function bind_input(key)
@@ -1698,6 +1738,7 @@ function library:keybind(props)
         local key_name = get_key_name(key)
         library.flags[cfg.flag] = key_name
         bind_text.Text = key_name
+        update_bind_size(key_name)
         
         if cfg.conn then cfg.conn:Disconnect() end
         cfg.conn = uis.InputBegan:Connect(function(input, gpe)
@@ -1716,6 +1757,7 @@ function library:keybind(props)
 
     self:connection(bind_btn.MouseButton1Click, function()
         bind_text.Text = "..."
+        update_bind_size("...")
         cfg.binding = true
         local conn
         conn = uis.InputBegan:Connect(function(input)
@@ -1741,7 +1783,7 @@ function library:keybind(props)
         bind_input(val)
     end
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:dropdown(props)
