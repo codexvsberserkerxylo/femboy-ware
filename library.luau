@@ -1270,7 +1270,9 @@ function library:toggle(props)
         default = props.default or false,
         flag = props.flag or props.name or "toggle_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
-        keybind_enabled = props.keybind or (props.options and props.options.keybind) or false
+        keybind_enabled = props.keybind or (props.options and props.options.keybind) or false,
+        default_key = props.default_key or Enum.KeyCode.Unknown,
+        default_mode = props.default_mode or "toggle"
     }
 
     local toggle_frame = self:create("TextButton", {
@@ -1281,7 +1283,8 @@ function library:toggle(props)
         Text = "",
         AutoButtonColor = false
     })
-    self:create("TextLabel", {
+    
+    local name_label = self:create("TextLabel", {
         Name = "name",
         Parent = toggle_frame,
         BackgroundTransparency = 1,
@@ -1294,24 +1297,179 @@ function library:toggle(props)
     })
 
     local switch_bg_pos_x = -42
+    local settings_btn = nil
+    local popup_frame = nil
+    local bind_btn = nil
+    local mode_btn = nil
+    local mode_list = nil
+    local toggle_bind_input = nil
+    local set_mode = nil
+    
     if cfg.keybind_enabled then
-        switch_bg_pos_x = -84
-        local bind_btn = self:create("TextButton", {
-            Name = "bind",
+        switch_bg_pos_x = -78
+        name_label.Size = UDim2.new(1, -86, 1, 0)
+        
+        settings_btn = self:create("ImageButton", {
+            Name = "settings_btn",
             Parent = toggle_frame,
-            Position = UDim2.new(1, -84, 0, 6),
-            Size = UDim2.new(0, 36, 0, 20),
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -78, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            Image = self:get_icon("settings"),
+            ZIndex = 3
+        })
+        
+        popup_frame = self:create("Frame", {
+            Name = "keybind_popup",
+            Parent = toggle_frame,
+            Visible = false,
+            Size = UDim2.new(0, 160, 0, 76),
+            Position = UDim2.new(1, -160, 0, 35),
+            BackgroundColor3 = self.themes.preset.element_background,
+            BorderSizePixel = 0,
+            ZIndex = 100
+        })
+        self:create("UICorner", { Parent = popup_frame, CornerRadius = UDim.new(0, 4) })
+        self:create("UIStroke", { Parent = popup_frame, Color = self.themes.preset.stroke, Thickness = 1, ZIndex = 100 })
+        self:create("UIPadding", { Parent = popup_frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
+        
+        local popup_layout = self:create("UIListLayout", {
+            Parent = popup_frame,
+            Padding = UDim.new(0, 6),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local keybind_holder = self:create("Frame", {
+            Parent = popup_frame,
+            Size = UDim2.new(1, 0, 0, 20),
+            BackgroundTransparency = 1
+        })
+        self:create("TextLabel", {
+            Parent = keybind_holder,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0.5, 0, 1, 0),
+            Font = Enum.Font.Gotham,
+            Text = "keybind",
+            TextColor3 = self.themes.preset.placeholder,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        bind_btn = self:create("TextButton", {
+            Parent = keybind_holder,
+            Position = UDim2.new(1, -50, 0, 0),
+            Size = UDim2.new(0, 50, 0, 20),
             BackgroundColor3 = self.themes.preset.dropdown,
             Text = "...",
             Font = Enum.Font.Gotham,
-            TextColor3 = self.themes.preset.placeholder,
+            TextColor3 = self.themes.preset.text,
             TextSize = 12,
             BorderSizePixel = 0,
             AutoButtonColor = false
         })
         self:create("UICorner", { Parent = bind_btn, CornerRadius = UDim.new(0, 4) })
-        
-        local function toggle_bind_input(key)
+
+        local mode_holder = self:create("Frame", {
+            Parent = popup_frame,
+            Size = UDim2.new(1, 0, 0, 20),
+            BackgroundTransparency = 1
+        })
+        self:create("TextLabel", {
+            Parent = mode_holder,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(0.5, 0, 1, 0),
+            Font = Enum.Font.Gotham,
+            Text = "mode",
+            TextColor3 = self.themes.preset.placeholder,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        mode_btn = self:create("TextButton", {
+            Parent = mode_holder,
+            Position = UDim2.new(1, -50, 0, 0),
+            Size = UDim2.new(0, 50, 0, 20),
+            BackgroundColor3 = self.themes.preset.dropdown,
+            Text = cfg.default_mode,
+            Font = Enum.Font.Gotham,
+            TextColor3 = self.themes.preset.text,
+            TextSize = 12,
+            BorderSizePixel = 0,
+            AutoButtonColor = false
+        })
+        self:create("UICorner", { Parent = mode_btn, CornerRadius = UDim.new(0, 4) })
+
+        mode_list = self:create("Frame", {
+            Parent = mode_btn,
+            Visible = false,
+            Position = UDim2.new(0, 0, 1, 2),
+            Size = UDim2.new(1, 0, 0, 44),
+            BackgroundColor3 = self.themes.preset.element_background,
+            BorderSizePixel = 0,
+            ZIndex = 101
+        })
+        self:create("UICorner", { Parent = mode_list, CornerRadius = UDim.new(0, 4) })
+        self:create("UIStroke", { Parent = mode_list, Color = self.themes.preset.stroke, Thickness = 1, ZIndex = 101 })
+        local mode_layout = self:create("UIListLayout", { Parent = mode_list, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
+        self:create("UIPadding", { Parent = mode_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
+
+        set_mode = function(m)
+            cfg.mode = m
+            mode_btn.Text = m
+            library.flags[cfg.flag.."_mode"] = m
+            if cfg.bind_conn then cfg.bind_conn:Disconnect() end
+            if cfg.hold_conn then cfg.hold_conn:Disconnect() end
+            if cfg.key ~= Enum.KeyCode.Unknown then
+                if cfg.mode == "toggle" then
+                    cfg.bind_conn = uis.InputBegan:Connect(function(input, gpe)
+                        if gpe then return end
+                        if (cfg.key.EnumType == Enum.KeyCode and input.KeyCode == cfg.key) or (cfg.key.EnumType == Enum.UserInputType and input.UserInputType == cfg.key) then
+                            cfg.set(not cfg.value)
+                        end
+                    end)
+                elseif cfg.mode == "hold" then
+                    cfg.bind_conn = uis.InputBegan:Connect(function(input, gpe)
+                        if gpe then return end
+                        if (cfg.key.EnumType == Enum.KeyCode and input.KeyCode == cfg.key) or (cfg.key.EnumType == Enum.UserInputType and input.UserInputType == cfg.key) then
+                            cfg.set(true)
+                        end
+                    end)
+                    cfg.hold_conn = uis.InputEnded:Connect(function(input)
+                        if (cfg.key.EnumType == Enum.KeyCode and input.KeyCode == cfg.key) or (cfg.key.EnumType == Enum.UserInputType and input.UserInputType == cfg.key) then
+                            cfg.set(false)
+                        end
+                    end)
+                end
+            end
+        end
+
+        for _, m in ipairs({"toggle", "hold"}) do
+            local opt_btn = self:create("TextButton", {
+                Parent = mode_list,
+                Size = UDim2.new(1, 0, 0, 16),
+                BackgroundTransparency = 1,
+                Text = "",
+                AutoButtonColor = false
+            })
+            self:create("TextLabel", {
+                Parent = opt_btn,
+                BackgroundTransparency = 1,
+                Size = UDim2.new(1, 0, 1, 0),
+                Font = Enum.Font.Gotham,
+                Text = m,
+                TextColor3 = self.themes.preset.text,
+                TextSize = 12,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+            self:connection(opt_btn.MouseButton1Click, function()
+                set_mode(m)
+                mode_list.Visible = false
+            end)
+        end
+
+        self:connection(mode_btn.MouseButton1Click, function()
+            mode_list.Visible = not mode_list.Visible
+        end)
+
+        toggle_bind_input = function(key)
             if typeof(key) == "string" then
                 local k = Enum.KeyCode[key] or Enum.UserInputType[key]
                 if k then key = k else return end
@@ -1323,24 +1481,9 @@ function library:toggle(props)
             end
             bind_btn.Text = key_name
             library.flags[cfg.flag.."_key"] = key_name
-            
-            if cfg.bind_conn then cfg.bind_conn:Disconnect() end
-            if key == Enum.KeyCode.Unknown then return end
-            
-            cfg.bind_conn = uis.InputBegan:Connect(function(input, gpe)
-                if gpe then return end
-                local pressed = false
-                if key.EnumType == Enum.KeyCode and input.KeyCode == key then
-                    pressed = true
-                elseif key.EnumType == Enum.UserInputType and input.UserInputType == key then
-                    pressed = true
-                end
-                if pressed then
-                    cfg.set(not cfg.value)
-                end
-            end)
+            set_mode(cfg.mode)
         end
-        
+
         self:connection(bind_btn.MouseButton1Click, function()
             bind_btn.Text = "..."
             cfg.binding = true
@@ -1362,11 +1505,19 @@ function library:toggle(props)
                 end
             end)
         end)
+
+        self:connection(settings_btn.MouseButton1Click, function()
+            popup_frame.Visible = not popup_frame.Visible
+            if popup_frame.Visible then
+                mode_list.Visible = false
+            end
+        end)
+
+        toggle_bind_input(cfg.default_key)
+        set_mode(cfg.default_mode)
         
-        toggle_bind_input(Enum.KeyCode.Unknown)
-        library.config_flags[cfg.flag.."_key"] = function(val)
-            toggle_bind_input(val)
-        end
+        library.config_flags[cfg.flag.."_key"] = function(val) toggle_bind_input(val) end
+        library.config_flags[cfg.flag.."_mode"] = function(val) set_mode(val) end
     end
     
     local switch_bg = self:create("Frame", {
@@ -1408,6 +1559,7 @@ function library:toggle(props)
     self:connection(toggle_frame.MouseButton1Click, function() cfg.set(not cfg.value) end)
     cfg.set(cfg.default)
     library.config_flags[cfg.flag] = cfg.set
+    
     if self.elements then table.insert(self.elements, cfg) end
     return setmetatable(cfg, { __index = self })
 end
