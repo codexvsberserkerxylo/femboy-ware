@@ -1336,7 +1336,7 @@ function library:toggle(props)
         self:create("TextLabel", {
             Parent = keybind_row,
             BackgroundTransparency = 1,
-            Size = UDim2.new(1, -90, 1, 0),
+            Size = UDim2.new(1, -100, 1, 0),
             Font = Enum.Font.Gotham,
             Text = "keybind",
             TextColor3 = self.themes.preset.placeholder,
@@ -1346,7 +1346,7 @@ function library:toggle(props)
         bind_btn = self:create("TextButton", {
             Parent = keybind_row,
             Position = UDim2.new(1, -80, 0, 0),
-            Size = UDim2.new(0, 80, 0, 20),
+            Size = UDim2.new(0, 70, 0, 20),
             BackgroundColor3 = self.themes.preset.dropdown,
             Text = "...",
             Font = Enum.Font.Gotham,
@@ -1356,6 +1356,16 @@ function library:toggle(props)
             AutoButtonColor = false
         })
         self:create("UICorner", { Parent = bind_btn, CornerRadius = UDim.new(0, 4) })
+
+        local remove_btn = self:create("ImageButton", {
+            Parent = keybind_row,
+            BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, 0, 0.5, 0),
+            Size = UDim2.new(0, 12, 0, 12),
+            Image = self:get_icon("x"),
+            ZIndex = 3
+        })
 
         local mode_row = self:create("Frame", {
             Parent = popup_frame,
@@ -1399,14 +1409,13 @@ function library:toggle(props)
         self:create("UIPadding", { Parent = mode_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
 
         local function update_popup_size()
-            local target_h = popup_layout.AbsoluteContentSize.Y
-            tween_service:Create(popup_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 200, 0, target_h)}):Play()
-        end
-        popup_layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            if expanded then
-                update_popup_size()
+            local h = 20 + 6 + 20 
+            if mode_list.Visible then
+                h = h + 6 + 44 
             end
-        end)
+            h = h + 16 
+            tween_service:Create(popup_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 200, 0, h)}):Play()
+        end
 
         set_mode = function(m)
             if m ~= "toggle" and m ~= "hold" then
@@ -1444,7 +1453,7 @@ function library:toggle(props)
         for _, m in ipairs({"toggle", "hold"}) do
             local opt_btn = self:create("TextButton", {
                 Parent = mode_list,
-                Size = UDim2.new(1, 0, 0, 16),
+                Size = UDim2.new(1, 0, 0, 20),
                 BackgroundTransparency = 1,
                 Text = "",
                 AutoButtonColor = false
@@ -1492,6 +1501,10 @@ function library:toggle(props)
             if cfg.mode == nil then cfg.mode = "toggle" end
             set_mode(cfg.mode)
         end
+
+        self:connection(remove_btn.MouseButton1Click, function()
+            toggle_bind_input(Enum.KeyCode.Unknown)
+        end)
 
         self:connection(bind_btn.MouseButton1Click, function()
             bind_btn.Text = "..."
