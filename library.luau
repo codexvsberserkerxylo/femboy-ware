@@ -603,9 +603,10 @@ function library:window(props)
         expand_tween.Completed:Wait()
 
         local full_text = "goodbye, " .. player.DisplayName
+        local function rng() return tonumber(string.format("%.3f", math.random() * 0.05 + 0.09)) end -- fuck luau
         for i = 1, #full_text do
             fuckoff.Text = string.sub(full_text, 1, i)
-            task.wait(0.14)
+            task.wait(rng())
         end
 
         task.wait(1.4)
