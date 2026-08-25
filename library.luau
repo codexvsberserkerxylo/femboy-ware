@@ -1270,7 +1270,7 @@ function library:toggle(props)
         default = props.default or false,
         flag = props.flag or props.name or "toggle_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
-        options = props.options or {}
+        keybind_enabled = props.keybind or (props.options and props.options.keybind) or false
     }
 
     local toggle_frame = self:create("TextButton", {
@@ -1294,12 +1294,12 @@ function library:toggle(props)
     })
 
     local switch_bg_pos_x = -42
-    if cfg.options.keybind then
-        switch_bg_pos_x = -82
+    if cfg.keybind_enabled then
+        switch_bg_pos_x = -84
         local bind_btn = self:create("TextButton", {
             Name = "bind",
             Parent = toggle_frame,
-            Position = UDim2.new(1, -82, 0, 6),
+            Position = UDim2.new(1, -84, 0, 6),
             Size = UDim2.new(0, 36, 0, 20),
             BackgroundColor3 = self.themes.preset.dropdown,
             Text = "...",
@@ -1409,7 +1409,7 @@ function library:toggle(props)
     cfg.set(cfg.default)
     library.config_flags[cfg.flag] = cfg.set
     if self.elements then table.insert(self.elements, cfg) end
-    return cfg
+    return setmetatable(cfg, { __index = self })
 end
 
 function library:button(props)
