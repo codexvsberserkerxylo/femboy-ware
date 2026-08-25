@@ -571,18 +571,19 @@ function library:window(props)
         
         local overlay = self:create("Frame", {
             Name = "closing_overlay",
-            Parent = self.gui,
+            Parent = main_frame,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(0.5, 0, 0.5, 0),
             Size = UDim2.new(0, 0, 0, 0),
             BackgroundColor3 = self.themes.preset.background,
             BorderSizePixel = 0,
-            ZIndex = 9998
+            ZIndex = 9998,
+            ClipsDescendants = true
         })
-        self:create("UICorner", { Parent = overlay, CornerRadius = UDim.new(1, 0) })
+        self:create("UICorner", { Parent = overlay, CornerRadius = UDim.new(0, 6) })
 
-        local goodbye_text = self:create("TextLabel", {
-            Name = "goodbye_text",
+        local fuckoff = self:create("TextLabel", {
+            Name = "fuck_off!",
             Parent = overlay,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(0.5, 0, 0.5, 0),
@@ -596,25 +597,25 @@ function library:window(props)
         })
 
         local expand_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-            Size = UDim2.new(3, 0, 3, 0)
+            Size = UDim2.new(1, 0, 1, 0)
         })
         expand_tween:Play()
         expand_tween.Completed:Wait()
 
         local full_text = "goodbye, " .. player.DisplayName
         for i = 1, #full_text do
-            goodbye_text.Text = string.sub(full_text, 1, i)
-            task.wait(0.06)
+            fuckoff.Text = string.sub(full_text, 1, i)
+            task.wait(0.11)
         end
 
-        task.wait(0.6)
+        task.wait(1.25)
 
         local shrink_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0)
         })
         shrink_tween:Play()
         
-        tween_service:Create(goodbye_text, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+        tween_service:Create(fuckoff, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
 
         shrink_tween.Completed:Wait()
 
