@@ -21,6 +21,9 @@ local aimbot_section = combat_tab:section({ name = "aimbot" })
 aimbot_section:toggle({
     name = "enabled",
     default = false,
+    --keybind = true,
+    --default_key = Enum.KeyCode.RightShift
+    --default_mode = "hold"
     flag = "aimbot_enabled",
     callback = function(val) print("aimbot enabled:", val) end
 })
