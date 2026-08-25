@@ -565,7 +565,61 @@ function library:window(props)
         end
     end)
 
-    self:connection(close_btn.MouseButton1Click, function() self:unload() end)
+    self:connection(close_btn.MouseButton1Click, function()
+        if self.is_closing then return end
+        self.is_closing = true
+        
+        local overlay = self:create("Frame", {
+            Name = "closing_overlay",
+            Parent = self.gui,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(0, 0, 0, 0),
+            BackgroundColor3 = self.themes.preset.background,
+            BorderSizePixel = 0,
+            ZIndex = 9998
+        })
+        self:create("UICorner", { Parent = overlay, CornerRadius = UDim.new(1, 0) })
+
+        local goodbye_text = self:create("TextLabel", {
+            Name = "goodbye_text",
+            Parent = overlay,
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Position = UDim2.new(0.5, 0, 0.5, 0),
+            Size = UDim2.new(1, 0, 1, 0),
+            BackgroundTransparency = 1,
+            Font = Enum.Font.GothamBold,
+            Text = "",
+            TextColor3 = self.themes.preset.text,
+            TextSize = 24,
+            ZIndex = 9999
+        })
+
+        local expand_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
+            Size = UDim2.new(3, 0, 3, 0)
+        })
+        expand_tween:Play()
+        expand_tween.Completed:Wait()
+
+        local full_text = "goodbye, " .. player.DisplayName
+        for i = 1, #full_text do
+            goodbye_text.Text = string.sub(full_text, 1, i)
+            task.wait(0.06)
+        end
+
+        task.wait(0.6)
+
+        local shrink_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
+            Size = UDim2.new(0, 0, 0, 0)
+        })
+        shrink_tween:Play()
+        
+        tween_service:Create(goodbye_text, TweenInfo.new(0.3), {TextTransparency = 1}):Play()
+
+        shrink_tween.Completed:Wait()
+
+        self:unload()
+    end)
 
     local minimized = false
     self:connection(minimize_btn.MouseButton1Click, function()
