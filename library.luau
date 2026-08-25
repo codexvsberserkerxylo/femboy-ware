@@ -1295,6 +1295,7 @@ function library:toggle(props)
     local set_mode = nil
     local expanded = false
     local current_rot = 0
+    local mode_open = false
     
     if cfg.keybind_enabled then
         name_width = -90
@@ -1361,7 +1362,7 @@ function library:toggle(props)
             Parent = keybind_row,
             BackgroundTransparency = 1,
             AnchorPoint = Vector2.new(1, 0.5),
-            Position = UDim2.new(1, 0, 0.5, 0),
+            Position = UDim2.new(1, 4, 0.5, 0),
             Size = UDim2.new(0, 12, 0, 12),
             Image = self:get_icon("x"),
             ZIndex = 3
@@ -1399,10 +1400,10 @@ function library:toggle(props)
         mode_list = self:create("Frame", {
             Parent = popup_frame,
             Size = UDim2.new(1, 0, 0, 0),
-            AutomaticSize = Enum.AutomaticSize.Y,
             BackgroundColor3 = self.themes.preset.dropdown,
             BorderSizePixel = 0,
-            Visible = false
+            Visible = false,
+            ClipsDescendants = true
         })
         self:create("UICorner", { Parent = mode_list, CornerRadius = UDim.new(0, 4) })
         local mode_layout = self:create("UIListLayout", { Parent = mode_list, Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder })
@@ -1410,11 +1411,27 @@ function library:toggle(props)
 
         local function update_popup_size()
             local h = 20 + 6 + 20 
-            if mode_list.Visible then
+            if mode_open then
                 h = h + 6 + 44 
             end
             h = h + 16 
-            tween_service:Create(popup_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 200, 0, h)}):Play()
+            tween_service:Create(popup_frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 200, 0, h)}):Play()
+        end
+
+        local function set_mode_open(open)
+            mode_open = open
+            if open then
+                mode_list.Visible = true
+                mode_list.Size = UDim2.new(1, 0, 0, 0)
+                tween_service:Create(mode_list, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 44)}):Play()
+            else
+                local tw = tween_service:Create(mode_list, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(1, 0, 0, 0)})
+                tw:Play()
+                tw.Completed:Connect(function()
+                    if not mode_open then mode_list.Visible = false end
+                end)
+            end
+            update_popup_size()
         end
 
         set_mode = function(m)
@@ -1470,14 +1487,12 @@ function library:toggle(props)
             })
             self:connection(opt_btn.MouseButton1Click, function()
                 set_mode(m)
-                mode_list.Visible = false
-                update_popup_size()
+                set_mode_open(false)
             end)
         end
 
         self:connection(mode_btn.MouseButton1Click, function()
-            mode_list.Visible = not mode_list.Visible
-            update_popup_size()
+            set_mode_open(not mode_open)
         end)
 
         toggle_bind_input = function(key)
@@ -1504,6 +1519,12 @@ function library:toggle(props)
 
         self:connection(remove_btn.MouseButton1Click, function()
             toggle_bind_input(Enum.KeyCode.Unknown)
+            local t1 = tween_service:Create(remove_btn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 16, 0, 16)})
+            t1:Play()
+            t1.Completed:Connect(function()
+                local t2 = tween_service:Create(remove_btn, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 12, 0, 12)})
+                t2:Play()
+            end)
         end)
 
         self:connection(bind_btn.MouseButton1Click, function()
@@ -1540,15 +1561,24 @@ function library:toggle(props)
             tween_service:Create(settings_btn, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation = current_rot}):Play()
             
             if expanded then
+                mode_open = false
                 mode_list.Visible = false
+                mode_list.Size = UDim2.new(1, 0, 0, 0)
                 popup_frame.Visible = true
                 popup_frame.Size = UDim2.new(0, 200, 0, 0)
                 update_popup_pos()
                 update_popup_size()
             else
-                mode_list.Visible = false
+                mode_open = false
+                local tw = tween_service:Create(mode_list, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(1, 0, 0, 0)})
+                tw:Play()
                 tween_service:Create(popup_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 200, 0, 0)}):Play()
-                task.delay(0.3, function() if not expanded then popup_frame.Visible = false end end)
+                task.delay(0.3, function() 
+                    if not expanded then 
+                        popup_frame.Visible = false 
+                        mode_list.Visible = false
+                    end 
+                end)
             end
         end)
 
