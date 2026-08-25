@@ -587,7 +587,7 @@ function library:window(props)
             Parent = overlay,
             AnchorPoint = Vector2.new(0.5, 0.5),
             Position = UDim2.new(0.5, 0, 0.5, 0),
-            Size = UDim2.new(1, 0, 1, 0),
+            Size = main_frame.Size,
             BackgroundTransparency = 1,
             Font = Enum.Font.GothamBold,
             Text = "",
@@ -605,10 +605,10 @@ function library:window(props)
         local full_text = "goodbye, " .. player.DisplayName
         for i = 1, #full_text do
             fuckoff.Text = string.sub(full_text, 1, i)
-            task.wait(0.11)
+            task.wait(0.14)
         end
 
-        task.wait(1.25)
+        task.wait(1.4)
 
         local shrink_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0)
