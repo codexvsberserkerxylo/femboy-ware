@@ -626,14 +626,13 @@ function library:window(props)
             end
         end
 
-        main_frame.BackgroundTransparency = 1
-
         task.wait(1.53) -- ok
 
         local shrink_tween = tween_service:Create(overlay, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {
             Size = UDim2.new(0, 0, 0, 0)
         })
         shrink_tween:Play()
+        main_frame.BackgroundTransparency = 1
         
         tween_service:Create(fuckoff, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
 
