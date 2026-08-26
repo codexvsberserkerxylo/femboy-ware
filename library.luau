@@ -607,7 +607,9 @@ function library:window(props)
             if char == "," or char == "." or char == " " then base += math.random() * 0.12 end
             return tonumber(string.format("%.3f", base))
         end
-        local full_text = "goodbye, "..player.DisplayName
+
+        local full_text = "goodbye, " .. player.DisplayName
+
         for i = 1, #full_text do
             local char = string.sub(full_text, i, i)
             fuckoff.Text = string.sub(full_text, 1, i)
@@ -2169,11 +2171,14 @@ function library:dropdown(props)
                 cfg.value = {}
             end
             library.flags[cfg.flag] = cfg.value
-            dd_text.Text = #cfg.value > 0 and table.concat(cfg.value, ", ") or "..."
+            dd_text.Text = (#cfg.value > 0 and table.concat(cfg.value, ", ")) or "..."
         else
+            if type(val) == "table" then
+                val = val[1]
+            end
             cfg.value = val
             library.flags[cfg.flag] = val
-            dd_text.Text = val or "..."
+            dd_text.Text = (val ~= nil and tostring(val)) or "..."
         end
         cfg:update_visuals()
         if type(cfg.callback) == "function" then cfg.callback(cfg.value) end
@@ -2299,7 +2304,7 @@ function library:dropdown(props)
                         table.insert(cfg.value, name)
                     end
                     library.flags[cfg.flag] = cfg.value
-                    dd_text.Text = #cfg.value > 0 and table.concat(cfg.value, ", ") or "..."
+                    dd_text.Text = (#cfg.value > 0 and table.concat(cfg.value, ", ")) or "..."
                     cfg:update_visuals()
                     if type(cfg.callback) == "function" then cfg.callback(cfg.value) end
                 else
@@ -2324,7 +2329,11 @@ function library:dropdown(props)
             cfg.value = {}
         end
     else
-        cfg.value = cfg.default
+        if type(cfg.default) == "table" then
+            cfg.value = cfg.default[1]
+        else
+            cfg.value = cfg.default
+        end
     end
 
     cfg:refresh(cfg.options)
