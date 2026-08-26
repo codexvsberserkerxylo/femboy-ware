@@ -1722,7 +1722,10 @@ end
 function library:button(props)
     local cfg = {
         name = props.name or "button",
-        callback = props.callback or function() end
+        callback = props.callback or function() end,
+        keybind_enabled = props.keybind or false,
+        default_key = props.default_key or Enum.KeyCode.Unknown,
+        flag = props.flag or props.name or "button_"..tostring(math.random(1, 100000))
     }
 
     local btn = self:create("TextButton", {
@@ -1736,11 +1739,188 @@ function library:button(props)
     })
     self:create("UICorner", { Parent = btn, CornerRadius = UDim.new(0, 4) })
 
+    local name_width = -50
+    local settings_btn = nil
+    local popup_frame = nil
+    local bind_btn = nil
+    local remove_btn = nil
+    local toggle_bind_input = nil
+    local expanded = false
+    local current_rot = 0
+
+    if cfg.keybind_enabled then
+        name_width = -90
+        settings_btn = self:create("ImageButton", {
+            Name = "settings_btn",
+            Parent = btn,
+            BackgroundTransparency = 1,
+            Position = UDim2.new(1, -68, 0, 8),
+            Size = UDim2.new(0, 16, 0, 16),
+            Image = self:get_icon("settings"),
+            ZIndex = 3
+        })
+        
+        popup_frame = self:create("Frame", {
+            Name = "keybind_popup",
+            Parent = self.gui,
+            Visible = false,
+            Size = UDim2.new(0, 200, 0, 0),
+            BackgroundColor3 = self.themes.preset.element_background,
+            BorderSizePixel = 0,
+            ZIndex = 100,
+            ClipsDescendants = true
+        })
+        self:create("UICorner", { Parent = popup_frame, CornerRadius = UDim.new(0, 4) })
+        self:create("UIStroke", { Parent = popup_frame, Color = self.themes.preset.stroke, Thickness = 1, ZIndex = 100 })
+        self:create("UIPadding", { Parent = popup_frame, PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8) })
+        
+        local popup_layout = self:create("UIListLayout", {
+            Parent = popup_frame,
+            Padding = UDim.new(0, 6),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+
+        local keybind_row = self:create("Frame", {
+            Parent = popup_frame,
+            Size = UDim2.new(1, 0, 0, 20),
+            BackgroundTransparency = 1
+        })
+        self:create("TextLabel", {
+            Parent = keybind_row,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, -100, 1, 0),
+            Font = Enum.Font.Gotham,
+            Text = "keybind",
+            TextColor3 = self.themes.preset.placeholder,
+            TextSize = 12,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        bind_btn = self:create("TextButton", {
+            Parent = keybind_row,
+            Position = UDim2.new(1, -80, 0, 0),
+            Size = UDim2.new(0, 70, 0, 20),
+            BackgroundColor3 = self.themes.preset.dropdown,
+            Text = "...",
+            Font = Enum.Font.Gotham,
+            TextColor3 = self.themes.preset.text,
+            TextSize = 12,
+            BorderSizePixel = 0,
+            AutoButtonColor = false
+        })
+        self:create("UICorner", { Parent = bind_btn, CornerRadius = UDim.new(0, 4) })
+
+        remove_btn = self:create("ImageButton", {
+            Parent = keybind_row,
+            BackgroundTransparency = 1,
+            AnchorPoint = Vector2.new(1, 0.5),
+            Position = UDim2.new(1, 4, 0.5, 0),
+            Size = UDim2.new(0, 12, 0, 12),
+            Image = self:get_icon("x"),
+            ZIndex = 3
+        })
+
+        local function update_popup_size()
+            local h = 20 + 16
+            tween_service:Create(popup_frame, TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {Size = UDim2.new(0, 200, 0, h)}):Play()
+        end
+
+        toggle_bind_input = function(key)
+            if key == nil then key = Enum.KeyCode.Unknown end
+            if typeof(key) == "string" then
+                local k = Enum.KeyCode[key] or Enum.UserInputType[key]
+                if k then key = k else key = Enum.KeyCode.Unknown end
+            elseif typeof(key) ~= "EnumItem" then
+                key = Enum.KeyCode.Unknown
+            end
+            
+            cfg.key = key
+            local key_name = "None"
+            if key ~= Enum.KeyCode.Unknown then
+                key_name = key.Name
+            end
+            
+            bind_btn.Text = key_name
+            library.flags[cfg.flag.."_key"] = key_name
+            
+            if cfg.bind_conn then cfg.bind_conn:Disconnect() end
+            if cfg.key ~= Enum.KeyCode.Unknown then
+                cfg.bind_conn = uis.InputBegan:Connect(function(input, gpe)
+                    if gpe then return end
+                    if (cfg.key.EnumType == Enum.KeyCode and input.KeyCode == cfg.key) or (cfg.key.EnumType == Enum.UserInputType and input.UserInputType == cfg.key) then
+                        if type(cfg.callback) == "function" then cfg.callback() end
+                    end
+                end)
+            end
+        end
+
+        self:connection(remove_btn.MouseButton1Click, function()
+            toggle_bind_input(Enum.KeyCode.Unknown)
+        end)
+
+        self:connection(bind_btn.MouseButton1Click, function()
+            bind_btn.Text = "..."
+            cfg.binding = true
+            local conn
+            conn = uis.InputBegan:Connect(function(input)
+                if cfg.binding then
+                    local valid_input = false
+                    if input.UserInputType == Enum.UserInputType.Keyboard then
+                        valid_input = true
+                        toggle_bind_input(input.KeyCode)
+                    elseif input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.MouseButton2 or input.UserInputType == Enum.UserInputType.MouseButton3 then
+                        valid_input = true
+                        toggle_bind_input(input.UserInputType)
+                    end
+                    if valid_input then
+                        cfg.binding = false
+                        if conn then conn:Disconnect() end
+                    end
+                end
+            end)
+        end)
+
+        local function update_popup_pos()
+            local btn_pos = settings_btn.AbsolutePosition
+            local btn_size = settings_btn.AbsoluteSize
+            popup_frame.Position = UDim2.new(0, btn_pos.X - 180, 0, btn_pos.Y + btn_size.Y + 4)
+        end
+
+        self:connection(settings_btn.MouseButton1Click, function()
+            expanded = not expanded
+            current_rot += 360
+            tween_service:Create(settings_btn, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Rotation = current_rot}):Play()
+            
+            if expanded then
+                popup_frame.Visible = true
+                popup_frame.Size = UDim2.new(0, 200, 0, 0)
+                update_popup_pos()
+                update_popup_size()
+            else
+                tween_service:Create(popup_frame, TweenInfo.new(0.3, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Size = UDim2.new(0, 200, 0, 0)}):Play()
+                task.delay(0.3, function() 
+                    if not expanded then 
+                        popup_frame.Visible = false 
+                    end 
+                end)
+            end
+        end)
+
+        self:connection(settings_btn:GetPropertyChangedSignal("AbsolutePosition"), function()
+            if popup_frame.Visible then
+                update_popup_pos()
+            end
+        end)
+
+        toggle_bind_input(cfg.default_key)
+        
+        library.config_flags[cfg.flag.."_key"] = function(val) toggle_bind_input(val) end
+    end
+
     self:create("TextLabel", {
         Name = "name",
         Parent = btn,
         BackgroundTransparency = 1,
-        Size = UDim2.new(1, 0, 1, 0),
+        Size = UDim2.new(1, name_width, 1, 0),
         Font = Enum.Font.Gotham,
         Text = cfg.name,
         TextColor3 = self.themes.preset.text,
