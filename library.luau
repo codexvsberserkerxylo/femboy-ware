@@ -607,7 +607,7 @@ function library:window(props)
             if char == "," or char == "." or char == " " then base += math.random() * 0.12 end
             return tonumber(string.format("%.3f", base))
         end
-
+        local full_text = "goodbye, "..player.DisplayName
         for i = 1, #full_text do
             local char = string.sub(full_text, i, i)
             fuckoff.Text = string.sub(full_text, 1, i)
@@ -2076,7 +2076,8 @@ function library:dropdown(props)
         default = props.default or (props.options and props.options[1] or nil),
         flag = props.flag or props.name or "dropdown_"..tostring(math.random(1, 100000)),
         callback = props.callback or function() end,
-        open = false
+        open = false,
+        multiple = props.multiple or false
     }
 
     local dd_frame = library:create("Frame", { Name = cfg.name, Parent = self.holder, Size = UDim2.new(1, 0, 0, 42), BackgroundTransparency = 1 })
@@ -2159,10 +2160,54 @@ function library:dropdown(props)
     library:create("UIPadding", { Parent = dd_list, PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 4) })
 
     function cfg.set(val)
-        cfg.value = val
-        library.flags[cfg.flag] = val
-        dd_text.Text = val
-        if type(cfg.callback) == "function" then cfg.callback(val) end
+        if cfg.multiple then
+            if type(val) == "table" then
+                cfg.value = val
+            elseif type(val) == "string" and val ~= "" then
+                cfg.value = { val }
+            else
+                cfg.value = {}
+            end
+            library.flags[cfg.flag] = cfg.value
+            dd_text.Text = #cfg.value > 0 and table.concat(cfg.value, ", ") or "..."
+        else
+            cfg.value = val
+            library.flags[cfg.flag] = val
+            dd_text.Text = val or "..."
+        end
+        cfg:update_visuals()
+        if type(cfg.callback) == "function" then cfg.callback(cfg.value) end
+    end
+
+    function cfg:update_visuals()
+        for _, child in next, dd_list:GetChildren() do
+            if child:IsA("TextButton") then
+                local name = child.Name
+                local is_selected = false
+                if cfg.multiple then
+                    if table.find(cfg.value, name) then is_selected = true end
+                else
+                    if cfg.value == name then is_selected = true end
+                end
+                
+                local check = child:FindFirstChild("check")
+                local text = child:FindFirstChild("val")
+                local icon = child:FindFirstChild("s_icon")
+                
+                local offset = is_selected and 24 or 0
+                
+                if check and text then
+                    tween_service:Create(check, TweenInfo.new(0.2), {ImageTransparency = is_selected and 0 or 1}):Play()
+                    
+                    if icon then
+                        tween_service:Create(icon, TweenInfo.new(0.2), {Position = UDim2.new(0, 8 + offset, 0, 2)}):Play()
+                        tween_service:Create(text, TweenInfo.new(0.2), {Position = UDim2.new(0, 32 + offset, 0, 0), TextColor3 = is_selected and Color3.fromRGB(255, 255, 255) or library.themes.preset.text}):Play()
+                    else
+                        tween_service:Create(text, TweenInfo.new(0.2), {Position = UDim2.new(0, 8 + offset, 0, 0), TextColor3 = is_selected and Color3.fromRGB(255, 255, 255) or library.themes.preset.text}):Play()
+                    end
+                end
+            end
+        end
     end
 
     local function toggle_dropdown(open)
@@ -2208,14 +2253,26 @@ function library:dropdown(props)
                 AutoButtonColor = false
             })
             
+            local check = library:create("ImageLabel", {
+                Name = "check",
+                Parent = opt_btn,
+                Position = UDim2.new(0, 8, 0, 2),
+                Size = UDim2.new(0, 16, 0, 16),
+                BackgroundTransparency = 1,
+                Image = library:get_icon("check"),
+                ImageTransparency = 1,
+                ZIndex = 2
+            })
+
             local text_x = 8
             if icon then
                 local ic = library:create("ImageLabel", {
+                    Name = "s_icon",
                     Parent = opt_btn,
                     Position = UDim2.new(0, 8, 0, 2),
                     Size = UDim2.new(0, 16, 0, 16),
                     BackgroundTransparency = 1,
-                    Image = library:get_icon(icon) 
+                    Image = library:get_icon(icon)
                 })
                 text_x = 32
             end
@@ -2232,20 +2289,53 @@ function library:dropdown(props)
                 TextSize = 12,
                 TextXAlignment = Enum.TextXAlignment.Left
             })
+            
             library:connection(opt_btn.MouseButton1Click, function()
-                cfg.set(name)
-                toggle_dropdown(false)
+                if cfg.multiple then
+                    local idx = table.find(cfg.value, name)
+                    if idx then
+                        table.remove(cfg.value, idx)
+                    else
+                        table.insert(cfg.value, name)
+                    end
+                    library.flags[cfg.flag] = cfg.value
+                    dd_text.Text = #cfg.value > 0 and table.concat(cfg.value, ", ") or "..."
+                    cfg:update_visuals()
+                    if type(cfg.callback) == "function" then cfg.callback(cfg.value) end
+                else
+                    cfg.set(name)
+                    toggle_dropdown(false)
+                end
             end)
         end
+        cfg:update_visuals()
     end
 
     self:connection(dd_btn.MouseButton1Click, function()
         toggle_dropdown(not cfg.open)
     end)
 
+    if cfg.multiple then
+        if type(cfg.default) == "table" then
+            cfg.value = cfg.default
+        elseif type(cfg.default) == "string" and cfg.default ~= "" then
+            cfg.value = { cfg.default }
+        else
+            cfg.value = {}
+        end
+    else
+        cfg.value = cfg.default
+    end
+
     cfg:refresh(cfg.options)
-    if cfg.default then cfg.set(cfg.default) end
-    library.config_flags[cfg.flag] = cfg.set
+    
+    if cfg.multiple then
+        cfg.set(cfg.value)
+    else
+        if cfg.default then cfg.set(cfg.default) end
+    end
+    
+    library.config_flags[cfg.flag] = function(val) cfg.set(val) end
     if self.elements then table.insert(self.elements, cfg) end
     return cfg
 end
